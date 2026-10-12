@@ -1,0 +1,85 @@
+.navbar {
+    box-shadow: $shadow-light;
+    background-color: var(--navbar-bg);
+
+    .navbar-brand {
+        img {
+            height: 50px;
+            width: auto;
+        }
+    }
+    .navbar-nav {
+        .nav-link {
+            color: var(--navbar-link-color);
+        }
+    }
+    .nav-right {
+        .btn-outline-white {
+            color: var(--navbar-link-color);
+            border-color: var(--navbar-link-color);
+            &:hover {
+                color: var(--primary);
+                border-color: var(--navbar-link-color);
+                background-color: var(--navbar-link-color);
+            }
+        }
+    }
+}
+
+.header-activity-dropdown .dropdown-menu {
+    max-height: 60vh;
+    overflow-y: auto;
+    // no gap between the toggle and menu, so the hover isn't lost while moving the pointer down
+    margin-top: 0;
+}
+
+.header-profile-dropdown {
+    .header-profile-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        box-shadow: none !important;
+
+        &::after {
+            display: none;
+        }
+    }
+
+    .header-profile-photo,
+    .header-profile-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(13, 110, 253, 0.35);
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .header-profile-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e9ecef;
+        color: #495057;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .header-profile-toggle:hover .header-profile-photo,
+    .header-profile-toggle:hover .header-profile-avatar,
+    .header-profile-toggle:focus .header-profile-photo,
+    .header-profile-toggle:focus .header-profile-avatar {
+        border-color: var(--bs-primary);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+    }
+}
+
+[data-theme='theme-dark'] .header-profile-dropdown {
+    .header-profile-avatar {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+}

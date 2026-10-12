@@ -1,0 +1,32 @@
+.thank-you-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.thank-you-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.thank-you-message {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.thank-you-countdown {
+  color: var(--text);
+  margin: 0;
+  font-size: 0.95rem;
+}

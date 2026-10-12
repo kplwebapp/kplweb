@@ -1,0 +1,94 @@
+.team-badge {
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &--logo {
+    object-fit: cover;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+  }
+
+  &--initials {
+    background: var(--primary, #000066);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+}
+
+.tournament-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  border-radius: 1rem;
+  background: var(--surface, #fff);
+  border: 1px dashed rgba(0, 0, 102, 0.2);
+
+  &__art svg {
+    width: 160px;
+    height: 120px;
+  }
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--section-title-text-color, inherit);
+    margin-bottom: 0.25rem;
+  }
+
+  &__text {
+    color: var(--text-light, #6b7280);
+    max-width: 32rem;
+  }
+
+  &--compact {
+    padding: 1.5rem 1rem;
+
+    .tournament-empty__art svg {
+      width: 120px;
+      height: 90px;
+    }
+  }
+
+}
+
+@media (min-width: 768px) {
+  .tournament-empty:not(.tournament-empty--compact) {
+    flex-direction: row;
+    justify-content: center;
+    text-align: left;
+    gap: 2rem;
+  }
+}
+
+.tournament-countdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: var(--primary, #000066);
+  color: #fff;
+  font-weight: 600;
+
+  strong {
+    font-size: 1.4rem;
+    color: var(--accent-gold, #FFD700);
+  }
+}
+
+.points-table-view {
+  thead th {
+    background: var(--primary, #000066);
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}

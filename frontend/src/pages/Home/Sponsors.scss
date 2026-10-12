@@ -1,0 +1,23 @@
+.sponsors {
+  background: var(--home-sponsors-bg);
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.sponsors h2 {
+  margin-bottom: 1.5rem;
+}
+
+.sponsor-logos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.sponsor-logos span {
+  display: grid;
+  place-items: center;
+  min-height: 80px;
+  font-weight: 700;
+}

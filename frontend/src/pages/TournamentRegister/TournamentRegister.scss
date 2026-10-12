@@ -1,0 +1,27 @@
+.tournament-register {
+  max-width: 960px;
+
+  &__readonly,
+  &__readonly:focus {
+    background-color: var(--bs-secondary-bg, #f1f3f5);
+    cursor: default;
+  }
+
+  &__done {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  &__done-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--primary, #000066);
+  }
+}

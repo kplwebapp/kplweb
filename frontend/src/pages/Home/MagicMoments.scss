@@ -1,0 +1,31 @@
+.magic-moments {
+  background: var(--home-magicmoments-bg);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.magic-moment-card {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #fff;
+
+  .card-img-top {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  .card-title {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+}
+
+.magic-moment-date {
+  color: #6b7280;
+  font-size: 0.875rem;
+}

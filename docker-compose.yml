@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kpl-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kpl_db
+      POSTGRES_USER: kpl_user
+      POSTGRES_PASSWORD: kpl_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema:/docker-entrypoint-initdb.d/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kpl_user -d kpl_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: kpl-api
+    restart: unless-stopped
+    env_file:
+      - backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: kpl_db
+      DB_USER: kpl_user
+      DB_PASSWORD: kpl_password
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: kpl-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

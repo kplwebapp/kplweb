@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <title>kpl</title>
+    <!-- Inline so the bar works before the app's stylesheets arrive; PageProgress.tsx reuses these classes. -->
+    <style>
+      .page-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2000;
+        height: 4px;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .page-progress__bar {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #ffd700, #ff9f1c);
+        box-shadow: 0 0 8px rgba(255, 196, 0, 0.7);
+        animation: page-progress-trickle 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+      }
+      @keyframes page-progress-trickle {
+        0% { width: 0; }
+        15% { width: 35%; }
+        50% { width: 70%; }
+        100% { width: 92%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .page-progress__bar {
+          width: 100%;
+          animation: none;
+          opacity: 0.7;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="page-progress" role="progressbar" aria-label="Loading page"><div class="page-progress__bar"></div></div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

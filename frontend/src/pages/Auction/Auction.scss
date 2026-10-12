@@ -1,0 +1,18 @@
+.auction-page {
+  &__season-select {
+    max-width: 320px;
+  }
+
+  &__status {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  &__summary h2 {
+    color: var(--kpl-primary, #1e3a8a);
+  }
+
+  &__bar {
+    height: 0.45rem;
+  }
+}

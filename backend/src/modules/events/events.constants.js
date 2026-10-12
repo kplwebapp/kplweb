@@ -1,0 +1,12 @@
+const { PERMISSIONS } = require('@kpl/shared');
+
+const KINDS = Object.freeze({ TOURNAMENT: 'TOURNAMENT', EVENT: 'EVENT' });
+
+const KIND_PERMISSIONS = Object.freeze({
+  [KINDS.TOURNAMENT]: { read: PERMISSIONS.TOURNAMENTS_READ, write: PERMISSIONS.TOURNAMENTS_WRITE },
+  [KINDS.EVENT]: { read: PERMISSIONS.EVENTS_READ, write: PERMISSIONS.EVENTS_WRITE },
+});
+
+const STATUSES = Object.freeze(['UPCOMING', 'ONGOING', 'PAST']);
+
+module.exports = { KINDS, KIND_PERMISSIONS, STATUSES };

@@ -1,0 +1,256 @@
+.banner-section {
+  position: relative;
+  min-height: 400px;
+  overflow: hidden;
+
+  .banner-slider {
+    min-height: 400px;
+
+    .slick-list,
+    .slick-track {
+      min-height: 400px;
+    }
+
+    .slick-slide > div {
+      min-height: 400px;
+    }
+  }
+
+  .slick-prev,
+  .slick-next {
+    z-index: 3;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 0.25rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: background 0.3s ease, border-color 0.3s ease;
+
+    &::before {
+      content: none;
+      display: none;
+    }
+
+    svg {
+      width: 1em;
+      height: 1em;
+      font-size: 20px;
+      color: #fff;
+    }
+
+    &:hover,
+    &:focus {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+  }
+
+  .slick-prev {
+    left: 1.5rem;
+  }
+
+  .slick-next {
+    right: 1.5rem;
+  }
+
+  .slick-dots {
+    bottom: 1.5rem;
+    z-index: 3;
+
+    li {
+      height: auto;
+      margin: 0 0.375rem;
+
+      button {
+        width: 12px;
+        height: 12px;
+        padding: 0;
+
+        &::before {
+          content: '';
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.5);
+          opacity: 1;
+          transition: all 0.3s ease;
+        }
+      }
+
+      &:hover button::before {
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      &.slick-active button::before {
+        width: 24px;
+        border-radius: 6px;
+        background: #fff;
+      }
+    }
+  }
+}
+
+.hero-slide {
+  position: relative;
+  min-height: 400px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  overflow: hidden;
+}
+
+.hero-slide-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
+
+.hero-slide-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.78) 0%,
+    rgba(37, 99, 235, 0.5) 45%,
+    rgba(15, 23, 42, 0.72) 100%
+  );
+}
+
+.hero-slide-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+  max-width: 800px;
+}
+
+.hero-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+.hero-slide-content h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  margin: 1rem 0;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.hero-slide-content p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  opacity: 0.95;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hero-cta-link {
+  display: inline-block;
+  margin-top: 1.75rem;
+  text-decoration: none;
+}
+
+.hero-cta {
+  margin-top: 0;
+  padding: 0.65rem 1.75rem;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover,
+  &:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+}
+
+@media (max-width: 768px) {
+  .banner-section {
+    min-height: 300px;
+
+    .banner-slider,
+    .banner-slider .slick-list,
+    .banner-slider .slick-track,
+    .banner-slider .slick-slide > div {
+      min-height: 300px;
+    }
+
+    .slick-prev,
+    .slick-next {
+      width: 36px;
+      height: 36px;
+
+      svg {
+        font-size: 16px;
+      }
+    }
+
+    .slick-prev {
+      left: 0.75rem;
+    }
+
+    .slick-next {
+      right: 0.75rem;
+    }
+
+    .slick-dots {
+      bottom: 1rem;
+
+      li {
+        margin: 0 0.25rem;
+
+        button::before {
+          width: 10px;
+          height: 10px;
+        }
+
+        &.slick-active button::before {
+          width: 28px;
+        }
+      }
+    }
+  }
+
+  .hero-slide {
+    min-height: 300px;
+    padding: 2rem 1rem;
+  }
+
+  .hero-slide-content h1 {
+    font-size: 2rem;
+    margin: 0.75rem 0;
+  }
+
+  .hero-slide-content p {
+    font-size: 1rem;
+  }
+
+  .hero-cta-link {
+    margin-top: 1.25rem;
+  }
+
+  .hero-cta {
+    padding: 0.55rem 1.25rem;
+    font-size: 0.95rem;
+  }
+}

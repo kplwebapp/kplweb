@@ -1,0 +1,35 @@
+.points-table {
+  background: var(--home-pointstable-bg);
+}
+
+.points-table__season-select {
+  max-width: 280px;
+  margin-inline: auto;
+}
+
+.points-table__status {
+  min-height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-card {
+  overflow-x: auto;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-card th,
+.table-card td {
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.table-card th {
+  font-weight: 700;
+}

@@ -1,0 +1,29 @@
+.whatareyoulookingfor-section {
+  background: var(--home-whatareyoulookingfor-bg);
+}
+
+.whatareyoulookingfor-section h2 {
+  margin-bottom: 1.5rem;
+}
+
+.search-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.search-cards button {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.9rem;
+  background: #fff;
+  color: var(--text);
+  padding: 1rem 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-cards button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
+}

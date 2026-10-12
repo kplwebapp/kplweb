@@ -1,0 +1,16 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY shared/package.json ./shared/
+COPY backend/package.json ./backend/
+
+RUN npm install --workspace=@kpl/backend --workspace=@kpl/shared
+
+COPY shared ./shared
+COPY backend ./backend
+COPY uploads ./uploads
+
+WORKDIR /app/backend
+EXPOSE 3001
+CMD ["node", "src/server.js"]

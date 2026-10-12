@@ -1,0 +1,19 @@
+.top-performers {
+  background: var(--home-topperformers-bg);
+}
+
+.performers-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.performers-list div {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+.performers-list span {
+  color: var(--muted);
+}

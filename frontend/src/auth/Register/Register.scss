@@ -1,0 +1,35 @@
+// Register-specific styles
+// Shared layout styles are in layouts/LoginRegisterLayout.scss
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Dark theme adjustments */
+[data-theme='theme-dark'] {
+  .register-form {
+    .form-floating > .form-control {
+      background: var(--card-bg);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+
+      &:focus {
+        border-color: #6ea8ff;
+        box-shadow: 0 0 0 3px rgba(110, 168, 255, 0.2);
+        background-color: var(--card-bg);
+        color: var(--text);
+      }
+    }
+
+    .form-floating > label {
+      color: var(--muted);
+    }
+
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label {
+      color: #6ea8ff;
+    }
+  }
+}

@@ -1,0 +1,103 @@
+// constants (don't change)
+$font-family-sans: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
+$font-family-heading: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+$radius-lg: 1.5rem;
+$radius-md: 1rem;
+
+$breakpoint-sm: 768px;
+
+$shadow-light: 0 2px 4px rgba(0, 0, 0, 0.1);
+$shadow-deep: 0 12px 30px rgba(15, 23, 42, 0.08);
+
+/* Light theme */
+:root {
+  --primary: #000066;
+  --primary-hover: #0052FF;
+  --secondary: #0052FF;
+  --secondary-heading-color: #FFFFFF;
+  --black: #000000;
+  --accent-gold: #FFD700;
+  --accent-gold-dark: #E6C200;
+
+  --accent-red: #E63946;
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+
+  --text-primary: #111827;
+  --text-light: #6B7280;
+
+  --border: #D1D5DB;
+
+  --page-bg: #f5f7fb;
+  --card-bg: #f8f9ff;
+  --footer-bg: #000033;
+  --footer-text: #fff;
+  --muted: #4f4f6b;
+  --danger: #dc2626;
+  --danger-text: #991b1b;
+
+  --theme-switch-bg: linear-gradient(90deg, #6ea8ff, #7b65ff);
+  --theme-switch-knob: #1f2937;
+  --theme-switch-knob-icon: yellow;
+  --topbar-link: #fff;
+  --topbar-bg: #000033;
+
+  --navbar-bg: #000066;
+  --navbar-link-color: #fff;
+  --section-title-text-color: #000066;
+
+  --home-whatareyoulookingfor-bg: #FFFFFF;
+  --home-magicmoments-bg: #F2F5FF;
+  --home-pointstable-bg: #E6ECFF;
+  --home-topperformers-bg: #FFFFFF;
+  --home-latestvideos-bg: #DCE6FF;
+  --home-sponsors-bg: #F2F5FF;
+}
+
+/* Dark theme */
+[data-theme='theme-dark'] {
+  --primary: #4D79FF;
+  --primary-hover: #668CFF;
+  --primary: #4D79FF;
+  --primary-hover: #668CFF;
+
+  --secondary: #80A3FF;
+
+  --accent-gold: #FFD700;
+  --accent-gold-hover: #FFE14D;
+
+  --danger: #FF6B6B;
+  --success: #22C55E;
+
+  --background: #0B1026;
+  --surface: #121A3A;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+
+  --border: #2D3A6A;
+  
+  --page-bg: #0f172a;
+  --card-bg: #1e293b;
+  --footer-bg: #020617;
+  --footer-text: #FFFFFF;
+  --muted: #9ca3af;
+  --danger: #dc2626;
+  --danger-text: #fca5a5;
+
+  --theme-switch-bg: #000;
+  --theme-switch-knob: #fff;
+  --theme-switch-knob-icon: #000;
+  --topbar-link: #fff;
+  --topbar-bg: #020617;
+
+  --navbar-bg: #050A30;
+
+  --home-whatareyoulookingfor-bg: #0F172A;
+  --home-magicmoments-bg: #111827;
+  --home-pointstable-bg: #16213E;
+  --home-topperformers-bg: #0F172A;
+  --home-latestvideos-bg: #111827;
+  --home-sponsors-bg: #0F172A;
+}
