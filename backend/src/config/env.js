@@ -30,4 +30,21 @@ const env = {
   logLevel: process.env.LOG_LEVEL || 'info',
 };
 
+if (env.nodeEnv === 'production') {
+  const accessSecret = process.env.JWT_SECRET;
+  const refreshSecret = process.env.JWT_REFRESH_SECRET;
+
+  if (!accessSecret || accessSecret.length < 32 || accessSecret === 'dev-secret-change-me') {
+    throw new Error('Production requires a strong JWT_SECRET of at least 32 characters');
+  }
+
+  if (!refreshSecret || refreshSecret.length < 32 || refreshSecret === 'dev-refresh-secret') {
+    throw new Error('Production requires a strong JWT_REFRESH_SECRET of at least 32 characters');
+  }
+
+  if (accessSecret === refreshSecret) {
+    throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be different');
+  }
+}
+
 module.exports = env;
