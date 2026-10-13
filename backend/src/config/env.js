@@ -11,6 +11,7 @@ const env = {
     user: process.env.DB_USER || 'kpl_user',
     password: process.env.DB_PASSWORD || '',
     max: Number(process.env.DB_POOL_MAX) || 20,
+    ssl: process.env.DB_SSL === 'true',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',

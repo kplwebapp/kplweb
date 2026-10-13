@@ -9,6 +9,7 @@ const pool = new Pool({
   user: env.db.user,
   password: env.db.password,
   max: env.db.max,
+  ssl: env.db.ssl ? { rejectUnauthorized: true } : false,
 });
 
 pool.on('error', (err) => {
