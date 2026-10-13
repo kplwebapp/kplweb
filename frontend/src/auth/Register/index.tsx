@@ -138,7 +138,11 @@ export default function Register({ navigate }: Props) {
     setError('')
   }
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleBlur = (
+    e: React.FocusEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target
     const newErrors = validateField(name as keyof FormData, value)
 
