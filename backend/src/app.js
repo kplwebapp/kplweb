@@ -25,7 +25,13 @@ app.use(
 
 app.use(...securityMiddleware);
 app.use(cors(corsOptions));
-app.use(compression());
+app.use(
+  compression({
+    // Compression buffers output, which would hold back live auction updates.
+    filter: (req, res) =>
+      !String(res.getHeader('Content-Type') || '').startsWith('text/event-stream') && compression.filter(req, res),
+  })
+);
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));

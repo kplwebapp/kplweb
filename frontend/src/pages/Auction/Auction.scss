@@ -1,6 +1,6 @@
 .auction-page {
-  &__season-select {
-    max-width: 320px;
+  &__select {
+    max-width: 420px;
   }
 
   &__status {
@@ -8,11 +8,122 @@
     padding: 0.5rem 0.75rem;
   }
 
-  &__summary h2 {
+  &__bar {
+    height: 0.45rem;
+  }
+}
+
+.auction-live {
+  &__title {
     color: var(--kpl-primary, #1e3a8a);
   }
 
-  &__bar {
-    height: 0.45rem;
+  &__muted {
+    color: var(--bs-secondary-color);
+  }
+
+  &__mode {
+    color: var(--bs-secondary-color);
+
+    &--live {
+      color: var(--bs-success);
+      font-weight: 600;
+    }
+  }
+
+  &__current {
+    border-left: 6px solid var(--bs-primary) !important;
+  }
+
+  &__photo {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  &__player {
+    font-size: clamp(1.6rem, 3vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  &__bid {
+    min-width: 200px;
+  }
+
+  &__amount {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    color: var(--bs-success);
+    line-height: 1.1;
+  }
+
+  &__sold {
+    display: inline-block;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.3rem;
+    color: var(--bs-success);
+    border: 3px solid currentColor;
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+    transform: rotate(-4deg);
+  }
+
+  &__bids {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  &__squad {
+    max-height: 9rem;
+    overflow-y: auto;
+  }
+
+  &__team--leading {
+    outline: 3px solid var(--bs-success);
+  }
+
+  // Projector view: dark, large, no page chrome.
+  &--fullscreen {
+    background: #0b1d42;
+    color: #fff;
+    padding: 2rem;
+    overflow-y: auto;
+
+    .auction-live__title,
+    .auction-live__card {
+      color: #fff;
+    }
+
+    .auction-live__muted,
+    .auction-live__mode {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .auction-live__mode--live {
+      color: #4ade80;
+    }
+
+    .auction-live__card {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .auction-live__amount,
+    .auction-live__sold {
+      color: #4ade80;
+    }
+
+    .list-group-item {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .auction-live__photo {
+      width: 200px;
+      height: 200px;
+    }
   }
 }

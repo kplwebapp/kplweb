@@ -18,7 +18,8 @@ import { TournamentsForPlayersPage, TournamentRegistrationsPage } from '@/admin/
 import MatchesPage from '@/admin/pages/Matches'
 import LiveScoringPage from '@/admin/pages/LiveScoring'
 import PointsTablePage from '@/admin/pages/PointsTable'
-import AuctionPage from '@/admin/pages/Auction'
+import AuctionsPage from '@/admin/pages/Auctions'
+import AuctionManagePage from '@/admin/pages/AuctionManage'
 import MembersPage from '@/admin/pages/Members'
 
 const redirectToDashboard = <Navigate to={ADMIN_BASE} replace />
@@ -44,6 +45,8 @@ export default function AdminRoutes() {
           <Route path="tournaments/:category" element={<ActivitiesPage kind="TOURNAMENT" />} />
           <Route path="tournaments/:category/:id" element={<TournamentManagePage />} />
           <Route path="teams" element={<TeamsPage />} />
+          <Route path="auctions" element={<AuctionsPage />} />
+          <Route path="auctions/:id" element={<AuctionManagePage />} />
           <Route path="events" element={<FirstCategoryRedirect kind="EVENT" />} />
           <Route path="events/:category" element={<ActivitiesPage kind="EVENT" />} />
           <Route path="categories/tournaments" element={<CategoriesPage kind="TOURNAMENT" />} />
@@ -60,7 +63,7 @@ export default function AdminRoutes() {
           <Route path="matches" element={<MatchesPage />} />
           <Route path="scoring" element={<LiveScoringPage />} />
           <Route path="points-table" element={<PointsTablePage />} />
-          <Route path="auction" element={<AuctionPage />} />
+          <Route path="auction" element={<Navigate to={`${ADMIN_BASE}/auctions`} replace />} />
 
           <Route path="about" element={redirectToDashboard} />
           <Route path="contact" element={redirectToDashboard} />

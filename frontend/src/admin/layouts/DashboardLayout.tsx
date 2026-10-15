@@ -5,7 +5,9 @@ import { useSidebarState } from '@/admin/hooks/useSidebarState'
 import logo from '@/assets/img-logo-white.png'
 import {
   ADMIN_BASE,
+  AUCTION_ROLES,
   KIND_LABELS,
+  auctionsItem,
   categoryIcon,
   categoryPath,
   contentGroup,
@@ -173,10 +175,11 @@ export default function DashboardLayout() {
   )
 
   const activeOf = (kind: ActivityKind) => categories[kind].filter((c) => c.is_active)
+  const canAuction = Boolean(user?.roles.some((role) => AUCTION_ROLES.includes(role)))
 
   const kindGroup = (kind: ActivityKind): NavItem[] => [
     ...activeOf(kind).map((c) => ({ label: c.name, path: categoryPath(kind, c.slug), icon: categoryIcon(kind, c.slug) })),
-    ...(kind === 'TOURNAMENT' ? [teamsItem] : []),
+    ...(kind === 'TOURNAMENT' ? [teamsItem, ...(canAuction ? [auctionsItem] : [])] : []),
     { label: 'Manage categories', path: manageCategoriesPath(kind), icon: '⚙️' },
   ]
 

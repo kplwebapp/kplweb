@@ -9,4 +9,6 @@ module.exports = {
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
+  // Lets the admin panel read the file name of downloaded reports.
+  exposedHeaders: ['Content-Disposition'],
 };

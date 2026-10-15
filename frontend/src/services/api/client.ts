@@ -1,6 +1,6 @@
 import { adminSession, isAdminArea } from '@/utils/adminSession';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 /** Fired on any 401 so the admin panel can send the user back to its login page. */
 export const UNAUTHORIZED_EVENT = 'kpl:unauthorized';
@@ -65,6 +65,26 @@ export class ApiClient {
     const formData = new FormData();
     formData.append(fieldName, file);
     return this.request<T>(endpoint, { method: 'POST', body: formData });
+  }
+
+  /** Fetches a file (e.g. a CSV report) with the session token and saves it. */
+  async download(endpoint: string, fallbackName: string) {
+    const token = this.getToken();
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Download failed');
+    }
+    const name = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName;
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 }
 

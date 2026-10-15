@@ -15,26 +15,6 @@ const auctionsController = {
     }
     return ApiResponse.success(res, data);
   }),
-
-  upsertAuction: asyncHandler(async (req, res) => {
-    const auction = await auctionsService.upsertAuction(req.body);
-    return ApiResponse.success(res, auction, 'Auction saved');
-  }),
-
-  createLot: asyncHandler(async (req, res) => {
-    const lot = await auctionsService.createLot(req.body);
-    return ApiResponse.success(res, lot, 'Lot added', 201);
-  }),
-
-  updateLot: asyncHandler(async (req, res) => {
-    const lot = await auctionsService.updateLot(Number(req.params.lotId), req.body);
-    return ApiResponse.success(res, lot, 'Lot updated');
-  }),
-
-  deleteLot: asyncHandler(async (req, res) => {
-    await auctionsService.deleteLot(Number(req.params.lotId));
-    return ApiResponse.success(res, null, 'Lot deleted');
-  }),
 };
 
 module.exports = auctionsController;
