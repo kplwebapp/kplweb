@@ -1,6 +1,7 @@
 const pool = require('../../config/database');
 const ApiResponse = require('../../utils/ApiResponse');
 const asyncHandler = require('../../utils/asyncHandler');
+const dashboardStats = require('./dashboard.stats');
 
 const getSummary = asyncHandler(async (_req, res) => {
   const [users, teams, matches, tournaments] = await Promise.all([
@@ -18,4 +19,8 @@ const getSummary = asyncHandler(async (_req, res) => {
   });
 });
 
-module.exports = { getSummary };
+const getStats = asyncHandler(async (_req, res) => {
+  return ApiResponse.success(res, await dashboardStats.getStats());
+});
+
+module.exports = { getSummary, getStats };

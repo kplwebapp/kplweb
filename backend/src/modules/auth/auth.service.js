@@ -111,6 +111,17 @@ const login = async ({ email, password }) => {
   return { user: fullUser, ...tokens };
 };
 
+const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TEAM_MANAGER', 'SCORER'];
+
+/** Same credentials check as `login`, but only accounts with a staff role may open the admin panel. */
+const adminLogin = async (credentials) => {
+  const result = await login(credentials);
+  if (!result.user.roles.some((role) => STAFF_ROLES.includes(role))) {
+    throw new ApiError(403, 'This account does not have access to the admin panel.');
+  }
+  return result;
+};
+
 const refresh = async (refreshToken) => {
   try {
     const payload = jwt.verify(refreshToken, env.jwt.refreshSecret);
@@ -123,4 +134,4 @@ const refresh = async (refreshToken) => {
 
 const me = async (userId) => getUserWithRoles(userId);
 
-module.exports = { register, login, refresh, me };
+module.exports = { register, login, adminLogin, refresh, me };

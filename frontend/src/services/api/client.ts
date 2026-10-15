@@ -1,13 +1,18 @@
+import { adminSession, isAdminArea } from '@/utils/adminSession';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 /** Fired on any 401 so the admin panel can send the user back to its login page. */
 export const UNAUTHORIZED_EVENT = 'kpl:unauthorized';
 
+/** Admin pages use the admin session; the public website uses the member session. */
+const currentToken = () => (isAdminArea() ? adminSession.getToken() : localStorage.getItem('accessToken'));
+
 export class ApiClient {
   private baseUrl: string;
   private getToken: () => string | null;
 
-  constructor(baseUrl = API_BASE_URL, getToken = () => localStorage.getItem('accessToken')) {
+  constructor(baseUrl = API_BASE_URL, getToken = currentToken) {
     this.baseUrl = baseUrl;
     this.getToken = getToken;
   }

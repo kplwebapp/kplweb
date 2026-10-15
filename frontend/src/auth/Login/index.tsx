@@ -142,7 +142,7 @@ export default function Login({ navigate }: Props) {
 
       if (accessToken && refreshToken && user) {
         login(accessToken, refreshToken, user)
-        navigate(getPostLoginPath(user.roles, redirect))
+        navigate(getPostLoginPath(redirect))
         return
       }
 
@@ -154,7 +154,7 @@ export default function Login({ navigate }: Props) {
       }
       if (user) {
         localStorage.setItem('user', JSON.stringify(user))
-        navigate(getPostLoginPath(user.roles, redirect))
+        navigate(getPostLoginPath(redirect))
         return
       }
 

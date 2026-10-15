@@ -7,5 +7,6 @@ const dashboardController = require('./dashboard.controller');
 const router = Router();
 
 router.get('/summary', authenticate, authorize(PERMISSIONS.DASHBOARD_READ), dashboardController.getSummary);
+router.get('/stats', authenticate, authorize(PERMISSIONS.DASHBOARD_READ), dashboardController.getStats);
 
 module.exports = router;

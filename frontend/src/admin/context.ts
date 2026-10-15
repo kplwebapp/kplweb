@@ -1,5 +1,6 @@
 import { useOutletContext } from 'react-router-dom'
 import type { ActivityKind, Category } from '@/services/api/activitiesApi'
+import { adminSession } from '@/utils/adminSession'
 
 export type AdminContext = {
   categories: Record<ActivityKind, Category[]>
@@ -11,10 +12,5 @@ export type AdminContext = {
 export const useAdminContext = () => useOutletContext<AdminContext>()
 
 export function readIsSuperAdmin(): boolean {
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null') as { roles?: string[] } | null
-    return Boolean(user?.roles?.includes('SUPER_ADMIN'))
-  } catch {
-    return false
-  }
+  return Boolean(adminSession.getUser()?.roles?.includes('SUPER_ADMIN'))
 }

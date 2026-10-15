@@ -3,19 +3,362 @@
   background: #f4f6f9;
 }
 
+/* ---------- Sidebar: expanded / collapsed (desktop), drawer (mobile) ---------- */
+
+.admin-shell {
+  --admin-sidebar-width: 260px;
+  --admin-sidebar-collapsed: 76px;
+  --admin-sidebar-speed: 0.28s;
+  --admin-topbar-height: 56px;
+}
+
 .admin-sidebar {
-  flex: 0 0 260px;
-  width: 260px;
-  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  flex: 0 0 var(--admin-sidebar-width);
+  width: var(--admin-sidebar-width);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: #1e293b;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    flex-basis var(--admin-sidebar-speed) ease,
+    width var(--admin-sidebar-speed) ease,
+    transform var(--admin-sidebar-speed) ease;
+}
+
+/*
+ * The menu scrolls only when its links don't fit (overflow-y: auto). The scrollbar has a
+ * transparent track, no arrow buttons, and stays invisible until the pointer is over the
+ * sidebar, then shows a translucent thumb. Touch screens have no hover, so there the thumb
+ * is always shown.
+ *
+ * Placement: the nav reaches into the sidebar's right padding so the scrollbar sits
+ * --admin-scrollbar-inset from the sidebar's edge, while padding-right keeps the links
+ * where they were. The gutter is reserved so links don't shift when a scrollbar appears.
+ */
+.admin-shell {
+  --admin-sidebar-pad-x: 0.75rem;
+  --admin-scrollbar-size: 6px;
+  /* 5px from the sidebar's outer edge, which includes its 1px right border */
+  --admin-scrollbar-inset: 4px;
+  /* icons sit at this offset in both states, centred in the collapsed rail */
+  --admin-link-pad-x: 0.875rem;
+}
+
+.admin-sidebar {
+  padding-left: var(--admin-sidebar-pad-x) !important;
+  padding-right: var(--admin-sidebar-pad-x) !important;
+}
+
+.admin-nav {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  margin-right: calc(var(--admin-scrollbar-inset) - var(--admin-sidebar-pad-x));
+  padding-right: calc(var(--admin-sidebar-pad-x) - var(--admin-scrollbar-inset) - var(--admin-scrollbar-size));
+}
+
+/*
+ * Chromium ignores the ::-webkit-scrollbar styles below (the only way to remove the arrow
+ * buttons) as soon as the standard properties are set, so those are for Firefox only;
+ * Firefox's thin scrollbar has no arrows.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  .admin-nav {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .admin-sidebar:hover .admin-nav,
+  .admin-sidebar:focus-within .admin-nav {
+    scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  }
+
+  @media (hover: none) {
+    .admin-nav {
+      scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+    }
+  }
+}
+
+.admin-nav::-webkit-scrollbar {
+  width: var(--admin-scrollbar-size);
+}
+
+.admin-nav::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.admin-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+
+.admin-sidebar:hover .admin-nav::-webkit-scrollbar-thumb,
+.admin-sidebar:focus-within .admin-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.admin-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+@media (hover: none) {
+  .admin-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+/*
+ * Collapsing only animates the sidebar width. Nothing else changes size or alignment:
+ * icons keep their left offset, labels keep their width and are clipped by the narrowing
+ * sidebar while they fade, and section titles keep their height (the text fades into a
+ * divider), so nothing jumps sideways or vertically.
+ */
+.admin-nav-link,
+.admin-logout {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.5rem var(--admin-link-pad-x);
 }
 
 .admin-nav-link {
   color: #ffffff !important;
   border-radius: 0.375rem;
-  padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
+}
+
+.admin-nav-icon {
+  flex: 0 0 1.5rem;
+  text-align: center;
+}
+
+.admin-nav-label {
+  min-width: 0;
+  margin-left: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--admin-sidebar-speed) ease;
+}
+
+.admin-nav-title {
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: color var(--admin-sidebar-speed) ease;
+}
+
+.admin-nav-title::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.25rem;
+  right: 0.25rem;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  transition: opacity var(--admin-sidebar-speed) ease;
+}
+
+.admin-shell--collapsed .admin-sidebar {
+  flex-basis: var(--admin-sidebar-collapsed);
+  width: var(--admin-sidebar-collapsed);
+}
+
+.admin-shell--collapsed .admin-nav-label {
+  opacity: 0;
+}
+
+.admin-shell--collapsed .admin-nav-title {
+  color: transparent !important;
+}
+
+.admin-shell--collapsed .admin-nav-title::after {
+  opacity: 1;
+}
+
+/*
+ * The full user card and the initials badge are both rendered; collapsing cross-fades
+ * them while their heights animate (grid rows 1fr <-> 0fr), so the menu below glides.
+ */
+.admin-user-slot {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+}
+
+.admin-user-slot__item {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--admin-sidebar-speed) ease,
+    opacity var(--admin-sidebar-speed) ease;
+}
+
+.admin-user-slot__item > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* keep the card at its expanded width so its text doesn't re-wrap while the sidebar narrows */
+.admin-user-slot__full .admin-user {
+  width: calc(var(--admin-sidebar-width) - 2 * var(--admin-sidebar-pad-x) - 1px);
+}
+
+.admin-user-slot__badge,
+.admin-shell--collapsed .admin-user-slot__full {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.admin-shell--collapsed .admin-user-slot__badge {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.admin-user__badge {
+  /* centres the 2.25rem badge on the icon column */
+  margin-left: calc(var(--admin-link-pad-x) + 0.75rem - 1.125rem);
+  cursor: default;
+  color: #fff;
+}
+
+/* Top bar with the menu toggle */
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: var(--admin-topbar-height);
+  padding: 0 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #1e293b;
+}
+
+.admin-menu-toggle:hover,
+.admin-menu-toggle:focus-visible {
+  background: #f1f5f9;
+}
+
+.admin-menu-toggle__bars,
+.admin-menu-toggle__bars::before,
+.admin-menu-toggle__bars::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.admin-menu-toggle__bars {
+  position: relative;
+}
+
+.admin-menu-toggle__bars::before,
+.admin-menu-toggle__bars::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.admin-menu-toggle__bars::before {
+  top: -6px;
+}
+
+.admin-menu-toggle__bars::after {
+  top: 6px;
+}
+
+.admin-topbar__logo img {
+  display: block;
+  height: 36px;
+  width: auto;
+  /* white logo on the light top bar */
+  filter: brightness(0.15);
+}
+
+.admin-overlay {
+  display: none;
+}
+
+/* Mobile: the sidebar slides in from the left over a dimmed backdrop. */
+@media (max-width: 991.98px) {
+  .admin-sidebar {
+    position: fixed;
+    left: 0;
+    z-index: 1045;
+    width: min(280px, 85vw);
+    flex-basis: auto;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .admin-shell--drawer-open .admin-sidebar {
+    transform: translateX(0);
+    box-shadow: 0 0 2rem rgba(0, 0, 0, 0.35);
+  }
+
+  .admin-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgba(15, 23, 42, 0.55);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity var(--admin-sidebar-speed) ease,
+      visibility 0s linear var(--admin-sidebar-speed);
+  }
+
+  .admin-shell--drawer-open .admin-overlay {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--admin-sidebar-speed) ease;
+  }
+
+  .admin-topbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .admin-user-slot__full .admin-user {
+    width: auto;
+  }
+}
+
+body.admin-drawer-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell {
+    --admin-sidebar-speed: 0s;
+  }
 }
 
 .admin-nav-link:hover {
@@ -26,6 +369,184 @@
 .admin-nav-link.active {
   background: #2563eb;
   color: #fff !important;
+}
+
+/* Logo strip: same height as the top bar, edge to edge, so the two line up. */
+.admin-logo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  height: var(--admin-topbar-height);
+  margin: -1rem calc(-1 * var(--admin-sidebar-pad-x)) 1rem;
+  padding: 0 0.5rem;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-logo {
+  gap: 0.6rem;
+  text-decoration: none;
+}
+
+.admin-logo img {
+  display: block;
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  max-height: calc(var(--admin-topbar-height) - 12px);
+  max-width: 100px;
+  transition: max-width var(--admin-sidebar-speed) ease;
+}
+
+.admin-shell--collapsed .admin-logo img {
+  max-width: calc(var(--admin-sidebar-collapsed) - 1rem - 1px);
+}
+
+/*
+ * "KANSARA" on top sets the width; "PREMIER LEAGUE" below spreads its letters evenly
+ * across exactly that width (the bottom line is kept out of the width calculation).
+ */
+.admin-wordmark {
+  display: inline-grid;
+  flex-shrink: 0;
+  color: #fff;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--admin-sidebar-speed) ease;
+}
+
+.admin-wordmark__top {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  /* drop the spacing after the last letter so both lines end at the same point */
+  margin-right: -0.06em;
+  text-transform: uppercase;
+}
+
+.admin-wordmark__bottom {
+  display: flex;
+  justify-content: space-between;
+  width: 0;
+  min-width: 100%;
+  margin-top: 0.2rem;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.admin-shell--collapsed .admin-wordmark {
+  opacity: 0;
+}
+
+.admin-user {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.admin-user .min-w-0 {
+  min-width: 0;
+}
+
+.admin-user__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: #2563eb;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.admin-user__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.admin-user__meta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-user__role {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.35);
+  border: 1px solid rgba(96, 165, 250, 0.6);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.dashboard-stat {
+  border-left: 4px solid #2563eb !important;
+}
+
+.dashboard-stat__value {
+  margin: 0.25rem 0;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #000066;
+}
+
+.dashboard-select {
+  flex: none;
+  max-width: min(260px, 55%);
+}
+
+.dashboard-donut__total {
+  font-size: 2rem;
+  font-weight: 700;
+  fill: #000066;
+}
+
+.dashboard-donut__caption {
+  font-size: 0.8rem;
+  fill: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.35rem 1rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.dashboard-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dashboard-legend li strong {
+  margin-left: auto;
+}
+
+.dashboard-legend li.is-empty {
+  color: #adb5bd;
+}
+
+.dashboard-legend__swatch {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+}
+
+.dashboard-legend li.is-empty .dashboard-legend__swatch {
+  opacity: 0.35;
 }
 
 .participating-teams {
@@ -60,7 +581,8 @@
 
 .admin-main {
   min-width: 0;
-  overflow: auto;
+  /* clip (not auto) so the page itself scrolls and the top bar can stay sticky */
+  overflow-x: clip;
 }
 
 .gallery-upload-previews {

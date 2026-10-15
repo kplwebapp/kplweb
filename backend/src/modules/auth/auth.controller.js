@@ -17,6 +17,11 @@ const login = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, result, 'Login successful');
 });
 
+const adminLogin = asyncHandler(async (req, res) => {
+  const result = await authService.adminLogin(req.body);
+  return ApiResponse.success(res, result, 'Login successful');
+});
+
 const refresh = asyncHandler(async (req, res) => {
   const tokens = await authService.refresh(req.body.refreshToken);
   return ApiResponse.success(res, tokens, 'Token refreshed');
@@ -27,4 +32,4 @@ const me = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, user);
 });
 
-module.exports = { register, login, refresh, me };
+module.exports = { register, login, adminLogin, refresh, me };

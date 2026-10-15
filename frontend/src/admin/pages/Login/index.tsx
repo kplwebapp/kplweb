@@ -1,10 +1,16 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Button, Card, Col, Container, Form, Row } from 'react-bootstrap'
 import { authApi } from '@/services/api/authApi'
 import { ADMIN_BASE } from '@/admin/config/sidebar'
+import { adminSession } from '@/utils/adminSession'
 
 export default function LoginPage() {
+  if (adminSession.getToken()) return <Navigate to={ADMIN_BASE} replace />
+  return <LoginForm />
+}
+
+function LoginForm() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const sessionEnded = searchParams.get('expired') === '1'
@@ -19,15 +25,9 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const res = await authApi.login(email, password)
-      localStorage.setItem('accessToken', res.data.accessToken)
-      if (res.data.refreshToken) {
-        localStorage.setItem('refreshToken', res.data.refreshToken)
-      }
-      if (res.data.user) {
-        localStorage.setItem('user', JSON.stringify(res.data.user))
-      }
-      navigate(ADMIN_BASE)
+      const res = await authApi.adminLogin(email, password)
+      adminSession.save(res.data.accessToken, res.data.refreshToken, res.data.user)
+      navigate(ADMIN_BASE, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect to API. Check backend is running.')
     } finally {
@@ -43,11 +43,13 @@ export default function LoginPage() {
             <Card className="border-0 shadow">
               <Card.Body className="p-4">
                 <h4 className="mb-1">KPL Admin</h4>
-                <p className="text-muted small mb-4">Sign in to manage the league</p>
+                <p className="text-muted small mb-4">
+                  Sign in with an admin account. This is separate from the member login on the website.
+                </p>
 
                 {sessionEnded && !error && (
                   <Alert variant="warning" className="small">
-                    Your admin session ended (for example, after logging out on the public website). Please sign in again.
+                    Your admin session has ended. Please sign in again.
                   </Alert>
                 )}
                 {error && <Alert variant="danger">{error}</Alert>}

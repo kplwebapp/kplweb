@@ -1,4 +1,5 @@
-import { Nav, Navbar, Container, Dropdown } from 'react-bootstrap'
+import { useState } from 'react'
+import { Nav, Navbar, Container, Dropdown, Offcanvas } from 'react-bootstrap'
 import { useAuth } from '../../contexts/AuthContext'
 import { getProfilePhotoUrl, handleProfilePhotoError } from '@/utils/profilePhoto'
 import ActivityMenu from './ActivityMenu'
@@ -16,37 +17,55 @@ export default function Header({ navigate, isDark }: Props) {
   const logo = isDark ? logoMainWhite : logoMain
   const photoUrl = getProfilePhotoUrl(user?.profile_photo_url)
 
+  // Mobile: the menu is an off-canvas drawer; every navigation closes it.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const go = (to: string) => {
+    setMenuOpen(false)
+    navigate(to)
+  }
+
   const handleLogout = () => {
     logout()
-    navigate('/logout')
+    go('/logout')
   }
 
   return (
-    <Navbar expand="lg" className="" sticky="top">
+    <Navbar expand="lg" sticky="top" expanded={menuOpen} onToggle={setMenuOpen}>
       <Container>
-        <Navbar.Brand href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+        <Navbar.Brand href="/" onClick={(e) => { e.preventDefault(); go('/') }}>
           <img src={logo} alt="Kansara Premier League" className="header-logo" />
         </Navbar.Brand>
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
-        <Navbar.Collapse id="basic-navbar-nav" className="header-collapse">
+        <Navbar.Toggle aria-controls="header-menu" className="header-menu-toggle" aria-label="Open menu" />
+        <Navbar.Offcanvas
+          id="header-menu"
+          aria-labelledby="header-menu-title"
+          placement="start"
+          className="header-offcanvas"
+        >
+          <Offcanvas.Header closeButton closeVariant="white" className="header-offcanvas__header">
+            <Offcanvas.Title id="header-menu-title">
+              <img src={logoMainWhite} alt="Kansara Premier League" className="header-offcanvas__logo" />
+            </Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body className="header-collapse">
           <div className="header-nav-row d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between w-100">
             <div className="nav-section nav-center d-flex justify-content-center w-100 mb-3 mb-lg-0">
               <Nav className="flex-column flex-lg-row align-items-start align-items-lg-center gap-2">
-                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/') }}>
                   Home
                 </Nav.Link>
-                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); navigate('/about') }}>
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/about') }}>
                   About
                 </Nav.Link>
-                <ActivityMenu kind="EVENT" label="Events" path="/events" navigate={navigate} />
-                <ActivityMenu kind="TOURNAMENT" label="Tournaments" path="/tournaments" navigate={navigate} />
-                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); navigate('/gallery') }}>
+                <ActivityMenu kind="EVENT" label="Events" path="/events" navigate={go} />
+                <ActivityMenu kind="TOURNAMENT" label="Tournaments" path="/tournaments" navigate={go} />
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/gallery') }}>
                   Gallery
                 </Nav.Link>
-                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); navigate('/auction') }}>
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/auction') }}>
                   Auction
                 </Nav.Link>
-                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); navigate('/contact') }}>
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/contact') }}>
                   Contact
                 </Nav.Link>
               </Nav>
@@ -69,17 +88,18 @@ export default function Header({ navigate, isDark }: Props) {
                     <span className="visually-hidden">Account menu</span>
                   </Dropdown.Toggle>
                   <Dropdown.Menu>
-                    <Dropdown.Item onClick={() => navigate('/profile')}>View Profile</Dropdown.Item>
+                    <Dropdown.Item onClick={() => go('/profile')}>View Profile</Dropdown.Item>
                     <Dropdown.Divider />
                     <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
                   </Dropdown.Menu>
                 </Dropdown>
               ) : (
-                <button className="btn btn-outline-white" onClick={() => navigate('/login')}>Login/Register</button>
+                <button className="btn btn-outline-white" onClick={() => go('/login')}>Login/Register</button>
               )}
             </div>
           </div>
-        </Navbar.Collapse>
+          </Offcanvas.Body>
+        </Navbar.Offcanvas>
       </Container>
     </Navbar>
   )

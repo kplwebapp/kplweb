@@ -23,6 +23,10 @@ export const authApi = {
   login: (email: string, password: string) =>
     apiClient.post<AuthResponse>('/auth/login', { email, password }),
 
+  /** Admin panel sign-in; rejects accounts without a staff role. */
+  adminLogin: (email: string, password: string) =>
+    apiClient.post<AuthResponse>('/auth/admin/login', { email, password }),
+
   register: (payload: {
     firstName: string;
     middleName?: string;
