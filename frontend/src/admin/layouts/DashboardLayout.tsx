@@ -21,6 +21,7 @@ import { adminActivitiesApi, type ActivityKind, type Category } from '@/services
 import { UNAUTHORIZED_EVENT } from '@/services/api/client'
 import { authApi, type AuthUser } from '@/services/api/authApi'
 import { ADMIN_SESSION_KEYS, adminSession, isStaff, roleLabel } from '@/utils/adminSession'
+import BackToTop from '@/components/common/BackToTop'
 
 type NavItem = { label: string; path: string; icon: string }
 
@@ -278,6 +279,7 @@ export default function DashboardLayout() {
           <Outlet context={context} />
         </div>
       </main>
+      <BackToTop />
     </div>
   )
 }

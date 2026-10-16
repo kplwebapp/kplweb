@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Topbar from '../components/Topbar/Topbar'
 import Header from '../components/Header/Header'
 import Footer from '../components/Footer/Footer'
+import BackToTop from '../components/common/BackToTop'
 
 type Props = {
   navigate: (to: string) => void
@@ -44,6 +45,7 @@ export default function MainLayout({ navigate, children }: Props) {
       <Header navigate={navigate} isDark={isDark} />
       <main className="main">{children}</main>
       <Footer />
+      <BackToTop />
     </div>
   )
 }
