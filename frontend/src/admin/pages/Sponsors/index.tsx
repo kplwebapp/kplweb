@@ -84,7 +84,7 @@ export default function SponsorsPage() {
   return (
     <AdminSection>
       <PageHeader
-        title="Sponsor Management"
+        title="Sponsors"
         description="Manage sponsors shown on the public Sponsors page and Home section."
         actions={<Button variant="primary" size="sm" onClick={openCreate}>Add Sponsor</Button>}
       />

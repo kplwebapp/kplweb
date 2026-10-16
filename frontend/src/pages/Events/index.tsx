@@ -98,7 +98,7 @@ export default function ActivityList({ kind, label, path, tabbed = false }: Prop
 
   if (!tabbed) {
     return (
-      <PageShell title={`Upcoming ${label}`} description={`Upcoming KPL ${label.toLowerCase()}.`}>
+      <PageShell title={label} description={`Upcoming KPL ${label.toLowerCase()}.`}>
         {loading ? (
           <div className="text-center py-4"><Spinner animation="border" /></div>
         ) : result.error ? (
@@ -133,7 +133,7 @@ export default function ActivityList({ kind, label, path, tabbed = false }: Prop
   }
 
   return (
-    <PageShell title={`KPL ${label}`} description={`Upcoming, ongoing and completed KPL ${label.toLowerCase()}.`}>
+    <PageShell title={label} description={`Upcoming, ongoing and completed KPL ${label.toLowerCase()}.`}>
       <Nav variant="tabs" activeKey={active} onSelect={selectTab} className="mb-4">
         {TABS.map((t) => (
           <Nav.Item key={t.key}>

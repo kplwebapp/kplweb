@@ -53,7 +53,7 @@ export default function GalleryPage() {
   return (
     <AdminSection>
       <PageHeader
-        title="Gallery Management"
+        title="Gallery"
         description="Upload and manage images for the public Gallery page."
         actions={
           <Button variant="primary" size="sm" onClick={() => setShowModal(true)}>

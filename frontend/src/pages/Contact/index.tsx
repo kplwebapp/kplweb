@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
-import { Container, Row, Col, Card, Form, Button, Alert, FloatingLabel } from 'react-bootstrap'
+import { Row, Col, Card, Form, Button, Alert, FloatingLabel } from 'react-bootstrap'
+import PageShell from '@/components/common/PageShell'
 import { contactContent } from '@/content'
 import { contentApi } from '@/services/api/contentApi'
 import './Contact.scss'
@@ -36,13 +37,11 @@ export default function Contact() {
   }
 
   return (
-    <Container as="section" className="contact-page py-4">
+    <PageShell title={contactContent.title} description={contactContent.description}>
       <Row className="g-4">
         <Col lg={5}>
           <Card className="shadow-sm border-0 h-100">
             <Card.Body className="p-4">
-              <Card.Title as="h2">{contactContent.title}</Card.Title>
-              <Card.Text className="text-muted">{contactContent.description}</Card.Text>
               <Card.Text className="mb-1"><strong>Email:</strong> {contactContent.email}</Card.Text>
               <Card.Text className="mb-0"><strong>Location:</strong> {contactContent.location}</Card.Text>
             </Card.Body>
@@ -119,6 +118,6 @@ export default function Contact() {
           </Card>
         </Col>
       </Row>
-    </Container>
+    </PageShell>
   )
 }

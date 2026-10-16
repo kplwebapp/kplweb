@@ -16,7 +16,7 @@ const LOT_SELECT = `
          l.eligibility_note, l.bid_round, l.current_bid_id, l.sold_bid_id,
          c.name AS category_name,
          t.team_name, t.short_name AS team_short_name,
-         u.profile_photo,
+         u.profile_photo, u.dob AS date_of_birth,
          cb.amount AS current_bid_amount, cb.team_id AS current_bid_team_id,
          ct.team_name AS current_bid_team_name,
          p.answers->>'batting_style' AS batting_style,
@@ -54,7 +54,9 @@ const repo = {
 
   listPublicAuctions: async (db = pool) => {
     const { rows } = await db.query(
-      `SELECT a.auction_id, a.title, a.status, a.is_legacy, a.auction_date,
+      `SELECT a.auction_id, a.title, a.description, a.status, a.is_legacy,
+              a.auction_date, a.venue,
+              COALESCE(a.image_url, e.image_url) AS image_url,
               s.season_name, s.season_year, e.title AS event_title
        FROM auctions a
        JOIN seasons s ON s.season_id = a.season_id
@@ -64,6 +66,22 @@ const repo = {
                 a.is_legacy, a.auction_date DESC NULLS LAST, a.auction_id DESC`
     );
     return rows;
+  },
+
+  findImageById: async (auctionId, db = pool) => {
+    const { rows } = await db.query('SELECT image_url FROM auctions WHERE auction_id = $1', [auctionId]);
+    return rows[0] || null;
+  },
+
+  setImage: async (auctionId, imageUrl, db = pool) => {
+    const { rows } = await db.query(
+      `UPDATE auctions
+       SET image_url = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE auction_id = $1
+       RETURNING auction_id, title, image_url, status`,
+      [auctionId, imageUrl]
+    );
+    return rows[0] || null;
   },
 
   findAuction: async (auctionId, db = pool) => {

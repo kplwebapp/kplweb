@@ -143,7 +143,7 @@ export default function MatchesPage() {
   return (
     <AdminSection>
       <PageHeader
-        title="Match Management"
+        title="Matches"
         description="Manage fixtures and results for the public Fixtures and Results pages."
         actions={<Button variant="primary" size="sm" onClick={openCreate}>Schedule Match</Button>}
       />

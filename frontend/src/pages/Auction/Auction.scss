@@ -1,129 +1,207 @@
 .auction-page {
-  &__select {
-    max-width: 420px;
-  }
-
   &__status {
     font-size: 0.85rem;
     padding: 0.5rem 0.75rem;
   }
+}
 
-  &__bar {
-    height: 0.45rem;
+.auction-card {
+  overflow: hidden;
+
+  &__media {
+    position: relative;
+    background: #e8eef7;
+  }
+
+  &__image {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+  }
+
+  &__status {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 }
 
 .auction-live {
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
   &__title {
     color: var(--kpl-primary, #1e3a8a);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
   }
 
-  &__muted {
-    color: var(--bs-secondary-color);
-  }
+  &__fullscreen {
+    color: var(--kpl-primary, #1e3a8a);
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    text-decoration: none;
 
-  &__mode {
-    color: var(--bs-secondary-color);
-
-    &--live {
-      color: var(--bs-success);
-      font-weight: 600;
+    &:hover,
+    &:focus {
+      color: var(--kpl-primary, #1e3a8a);
+      opacity: 0.75;
     }
   }
 
-  &__current {
-    border-left: 6px solid var(--bs-primary) !important;
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  &__paused {
+    background: rgba(var(--bs-warning-rgb), 0.15);
+    color: #8a6d00;
+    border-radius: 0.5rem;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+  }
+
+  &__team-card {
+    background: #fff;
+  }
+
+  &__donut {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+  }
+
+  &__team-stats {
+    flex: 1;
+    min-width: 0;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  &__player-table {
+    max-height: 28rem;
+    overflow: auto;
+  }
+
+  &__row--active {
+    background: rgba(var(--bs-primary-rgb), 0.08);
   }
 
   &__photo {
     width: 140px;
     height: 140px;
-    border-radius: 50%;
+    max-width: 100%;
+    border-radius: 0.75rem;
     object-fit: cover;
-    flex-shrink: 0;
   }
 
-  &__player {
-    font-size: clamp(1.6rem, 3vw, 2.5rem);
-    font-weight: 700;
-    line-height: 1.1;
+  &__details {
+    display: grid;
+    gap: 0.55rem;
+
+    > div {
+      display: grid;
+      grid-template-columns: minmax(8rem, 40%) 1fr;
+      gap: 0.5rem;
+      align-items: baseline;
+    }
+
+    dt {
+      margin: 0;
+      color: var(--bs-secondary-color);
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+    }
   }
 
-  &__bid {
-    min-width: 200px;
+  &__next {
+    border-left: 4px solid var(--bs-primary) !important;
   }
 
-  &__amount {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 800;
-    color: var(--bs-success);
-    line-height: 1.1;
-  }
-
-  &__sold {
-    display: inline-block;
-    font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: 0.3rem;
-    color: var(--bs-success);
-    border: 3px solid currentColor;
-    padding: 0 1rem;
-    margin-bottom: 0.5rem;
-    transform: rotate(-4deg);
-  }
-
-  &__bids {
-    max-height: 320px;
-    overflow-y: auto;
-  }
-
-  &__squad {
-    max-height: 9rem;
-    overflow-y: auto;
-  }
-
-  &__team--leading {
-    outline: 3px solid var(--bs-success);
-  }
-
-  // Projector view: dark, large, no page chrome.
+  // Projector / full-screen view
   &--fullscreen {
     background: #0b1d42;
     color: #fff;
     padding: 2rem;
     overflow-y: auto;
+    min-height: 100vh;
 
     .auction-live__title,
-    .auction-live__card {
+    .auction-live__fullscreen,
+    .card,
+    .card-header,
+    .table,
+    strong {
       color: #fff;
     }
 
-    .auction-live__muted,
-    .auction-live__mode {
-      color: rgba(255, 255, 255, 0.7);
+    .auction-live__fullscreen:hover,
+    .auction-live__fullscreen:focus {
+      color: #fff;
     }
 
-    .auction-live__mode--live {
-      color: #4ade80;
+    .auction-live__meta,
+    .text-muted,
+    .auction-live__details dt {
+      color: rgba(255, 255, 255, 0.7) !important;
     }
 
-    .auction-live__card {
+    .auction-live__card,
+    .auction-live__team-card,
+    .auction-live__next {
       background: rgba(255, 255, 255, 0.08);
     }
 
-    .auction-live__amount,
-    .auction-live__sold {
-      color: #4ade80;
+    .table {
+      --bs-table-bg: transparent;
+      --bs-table-color: #fff;
+      --bs-table-striped-bg: rgba(255, 255, 255, 0.04);
+      --bs-table-hover-bg: rgba(255, 255, 255, 0.08);
+      --bs-table-border-color: rgba(255, 255, 255, 0.12);
     }
 
-    .list-group-item {
+    .table-light {
+      --bs-table-bg: rgba(255, 255, 255, 0.08);
+      --bs-table-color: #fff;
       color: #fff;
-      border-color: rgba(255, 255, 255, 0.15);
     }
 
-    .auction-live__photo {
-      width: 200px;
-      height: 200px;
+    .auction-live__row--active {
+      background: rgba(74, 144, 226, 0.25);
+    }
+
+    .auction-live__paused {
+      background: rgba(250, 204, 21, 0.2);
+      color: #fde68a;
     }
   }
 }

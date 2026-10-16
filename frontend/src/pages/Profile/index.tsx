@@ -14,6 +14,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPen } from '@fortawesome/free-solid-svg-icons'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import {
   profileApi,
   getProfilePhotoUrl,
@@ -97,6 +98,8 @@ function ReadonlyFloatingField({
 }
 
 export default function Profile() {
+  usePageTitle('My Profile')
+
   const { updateUser } = useAuth()
   const [profile, setProfile] = useState<MemberProfile | null>(null)
   const [editVibhaag, setEditVibhaag] = useState('')
@@ -268,12 +271,12 @@ export default function Profile() {
 
   return (
     <Container as="section" className="profile-page py-4">
-      <div className="profile-page-header mb-4">
-        <h2 className="mb-1">My Profile</h2>
-        <p className="text-muted mb-0">
+      <header className="page-heading mb-4">
+        <h1 className="page-heading__title">My Profile</h1>
+        <p className="page-heading__description">
           View your member details and cricketing skills.
         </p>
-      </div>
+      </header>
 
       {error && !showEditModal && !showOtpModal && <Alert variant="danger">{error}</Alert>}
 

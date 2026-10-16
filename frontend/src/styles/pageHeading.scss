@@ -1,0 +1,17 @@
+/* Shared page title treatment for public and admin screens. */
+.page-heading {
+  &__title {
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.5rem, 2.5vw, 1.85rem);
+    font-weight: 700;
+    color: var(--kpl-primary, #1e3a8a);
+    line-height: 1.25;
+  }
+
+  &__description {
+    margin: 0;
+    color: var(--bs-secondary-color);
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+}

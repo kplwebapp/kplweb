@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { authenticate } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/authorize');
+const { activityImageUpload } = require('../../middleware/upload');
 const { PERMISSIONS } = require('@kpl/shared');
 const validate = require('../../middleware/validate');
 const ApiError = require('../../utils/ApiError');
@@ -36,6 +37,8 @@ router.post('/manage', ...manage, validate(v.createAuctionSchema), c.create);
 
 router.get('/manage/:auctionId', ...read, c.detail);
 router.patch('/manage/:auctionId', ...manage, validate(v.updateAuctionSchema), c.update);
+router.post('/manage/:auctionId/image', ...manage, activityImageUpload, c.uploadImage);
+router.delete('/manage/:auctionId/image', ...manage, c.removeImage);
 router.put('/manage/:auctionId/categories', ...manage, validate(v.categoriesSchema), c.setCategories);
 router.get('/manage/:auctionId/team-options', ...read, c.teamOptions);
 router.put('/manage/:auctionId/teams', ...manage, validate(v.teamsSchema), c.setTeams);

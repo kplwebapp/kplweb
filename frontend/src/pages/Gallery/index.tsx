@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Container, Row, Col, Card, Spinner, Alert } from 'react-bootstrap'
+import { Row, Col, Card, Spinner, Alert } from 'react-bootstrap'
+import PageShell from '@/components/common/PageShell'
 import { galleryContent } from '@/content'
 import { contentApi, type GalleryItem } from '@/services/api/contentApi'
 import './Gallery.scss'
@@ -18,21 +19,14 @@ export default function Gallery() {
 
   if (loading) {
     return (
-      <Container className="py-5 text-center">
-        <Spinner animation="border" />
-      </Container>
+      <PageShell title={galleryContent.title} description={galleryContent.description}>
+        <div className="text-center py-5"><Spinner animation="border" /></div>
+      </PageShell>
     )
   }
 
   return (
-    <Container as="section" className="gallery-page py-4">
-      <Card className="shadow-sm border-0 mb-4">
-        <Card.Body className="p-4">
-          <Card.Title as="h2">{galleryContent.title}</Card.Title>
-          <Card.Text className="lead text-muted mb-0">{galleryContent.description}</Card.Text>
-        </Card.Body>
-      </Card>
-
+    <PageShell title={galleryContent.title} description={galleryContent.description}>
       {error && <Alert variant="warning">{error}</Alert>}
 
       <Row className="g-4">
@@ -48,7 +42,7 @@ export default function Gallery() {
                   alt={item.title || 'Gallery image'}
                 />
                 <Card.Body>
-                  <Card.Title as="h6">{item.title || 'Untitled'}</Card.Title>
+                  <Card.Title as="h2" className="h6">{item.title || 'Untitled'}</Card.Title>
                   {item.caption && (
                     <Card.Text className="text-muted small mb-0">{item.caption}</Card.Text>
                   )}
@@ -58,6 +52,6 @@ export default function Gallery() {
           ))
         )}
       </Row>
-    </Container>
+    </PageShell>
   )
 }

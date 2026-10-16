@@ -8,6 +8,7 @@ import { CRICKET_SELECT_FIELDS } from '@/constants/cricketSkills'
 import { formatEventDateRange } from '@/utils/eventDate'
 import { loginPathFor } from '@/utils/authRedirect'
 import PageShell from '@/components/common/PageShell'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import './TournamentRegister.scss'
 
 type SkillsDraft = Record<keyof CricketSkills, string>
@@ -85,13 +86,15 @@ export default function TournamentRegister() {
     return () => { cancelled = true }
   }, [slug, isAuthenticated])
 
+  usePageTitle('Tournament Registration')
+
   if (!isAuthenticated) return <Navigate to={loginPathFor(location.pathname)} replace />
 
   const tournamentLink = `/tournaments/${slug}`
 
   if (loaded?.slug !== slug) {
     return (
-      <PageShell title="Tournament Registration">
+      <PageShell title="Tournament Registration" showHeading={false}>
         <div className="text-center py-4"><Spinner animation="border" /></div>
       </PageShell>
     )
@@ -170,8 +173,12 @@ export default function TournamentRegister() {
     <Container as="section" className="tournament-register py-4">
       <div className="mb-4">
         <Link to={tournamentLink} className="small text-decoration-none">← {tournament.title}</Link>
-        <h2 className="mt-2 mb-1">Register for {tournament.title}</h2>
-        {meta && <p className="text-muted mb-0">{meta}</p>}
+        <header className="page-heading mt-2">
+          <h1 className="page-heading__title">Tournament Registration</h1>
+          <p className="page-heading__description">
+            {tournament.title}{meta ? ` · ${meta}` : ''}
+          </p>
+        </header>
       </div>
 
       {registration && (

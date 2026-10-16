@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Container, Row, Col, Card } from 'react-bootstrap'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import './LoginRegisterLayout.scss'
 
 type Props = {
@@ -18,6 +19,8 @@ export default function LoginRegisterLayout({
   illustrationSubtitle,
   children,
 }: Props) {
+  usePageTitle(title)
+
   return (
     <Container fluid className="login-register-container px-0">
       <Row className="w-100 h-100 gx-0">
@@ -32,9 +35,9 @@ export default function LoginRegisterLayout({
         <Col lg={6} xs={12} className="d-flex align-items-start justify-content-center form-col">
           <Card className="border-0 shadow-none form-card w-100">
             <Card.Body>
-              <div className="form-header">
-                <h1>{title}</h1>
-                <p>{subtitle}</p>
+              <div className="form-header page-heading">
+                <h1 className="page-heading__title">{title}</h1>
+                <p className="page-heading__description">{subtitle}</p>
               </div>
               {children}
             </Card.Body>

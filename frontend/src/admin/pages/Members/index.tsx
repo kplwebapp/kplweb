@@ -103,7 +103,7 @@ export default function MembersPage() {
   return (
     <AdminSection>
       <PageHeader
-        title="Registered Members"
+        title="Members"
         description="Review and approve members who register via the public site."
         actions={
           <ButtonGroup size="sm">

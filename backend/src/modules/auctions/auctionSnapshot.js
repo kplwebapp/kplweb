@@ -13,6 +13,15 @@ const RECENT_BIDS = 15;
 /** Drafts and cancelled auctions are never shown publicly. */
 const isPublic = (auction) => auction.is_legacy || !['DRAFT', 'CANCELLED'].includes(auction.status);
 
+/** Public labels for the live board — kept on the server so screens stay consistent. */
+const STATUS_LABEL = {
+  ON_BLOCK: 'Bidding On',
+  SOLD: 'Sold',
+  UNSOLD: 'Unsold',
+  PENDING: 'Waiting',
+  WITHDRAWN: 'Removed',
+};
+
 const publicLot = (l) => ({
   lot_id: l.lot_id,
   lot_number: l.lot_number,
@@ -21,10 +30,15 @@ const publicLot = (l) => ({
   category: l.category_name ?? l.player_role ?? null,
   base_price: l.base_price,
   status: l.status,
+  status_label: STATUS_LABEL[l.status] ?? l.status,
   team_id: l.team_id,
   team_name: l.team_name,
   sold_price: l.sold_price,
   profile_photo: l.profile_photo,
+  date_of_birth: l.date_of_birth,
+  batting_style: l.batting_style,
+  bowling_style: l.bowling_style,
+  is_wicketkeeper: l.is_wicketkeeper,
 });
 
 const build = async (auctionId) => {
@@ -41,6 +55,8 @@ const build = async (auctionId) => {
   const lots = allLots.filter((l) => l.status !== 'WITHDRAWN' && (l.is_eligible || l.status === 'SOLD'));
   const current = lots.find((l) => l.lot_id === auction.current_lot_id && l.status === 'ON_BLOCK') ?? null;
   const increment = auction.min_bid_increment;
+  const waiting = lots.filter((l) => l.status === 'PENDING');
+  const nextLot = waiting[0] ?? null;
 
   let currentView = null;
   if (current) {
@@ -48,12 +64,10 @@ const build = async (auctionId) => {
     const highest = bids[0] ?? null;
     currentView = {
       ...publicLot(current),
-      batting_style: current.batting_style,
-      bowling_style: current.bowling_style,
-      is_wicketkeeper: current.is_wicketkeeper,
       bid_round: current.bid_round,
       highest: highest && { amount: highest.amount, team_id: highest.team_id, team_name: highest.team_name },
       next_min_bid: highest ? highest.amount + increment : current.base_price,
+      points_spent: highest ? highest.amount : current.base_price,
       bids: bids.slice(0, RECENT_BIDS).map((b) => ({
         amount: b.amount,
         team_id: b.team_id,
@@ -64,6 +78,22 @@ const build = async (auctionId) => {
   }
 
   const sold = lots.filter((l) => l.status === 'SOLD');
+
+  // Right-hand panel: current on-block player, otherwise the last sold/unsold result.
+  let featured = currentView;
+  if (!featured && lastEvent && (lastEvent.event_type === 'PLAYER_SOLD' || lastEvent.event_type === 'PLAYER_UNSOLD')) {
+    const lastLot = lots.find((l) => l.lot_id === lastEvent.lot_id);
+    if (lastLot) {
+      featured = {
+        ...publicLot(lastLot),
+        points_spent: lastLot.status === 'SOLD' ? lastLot.sold_price : null,
+      };
+    }
+  }
+
+  // Left-hand list: sold players are removed; unsold and waiting stay.
+  const pool = lots.filter((l) => l.status !== 'SOLD').map(publicLot);
+
   const teams = teamRows.map((t) => ({
     team_id: t.team_id,
     team_name: t.team_name,
@@ -77,7 +107,12 @@ const build = async (auctionId) => {
     slots_left: t.slots_left,
     players: sold
       .filter((l) => l.team_id === t.team_id)
-      .map((l) => ({ lot_id: l.lot_id, player_name: l.player_name, category: l.category_name ?? l.player_role, sold_price: l.sold_price })),
+      .map((l) => ({
+        lot_id: l.lot_id,
+        player_name: l.player_name,
+        category: l.category_name ?? l.player_role ?? null,
+        sold_price: l.sold_price,
+      })),
   }));
 
   return {
@@ -102,12 +137,15 @@ const build = async (auctionId) => {
     categories: categories.map((c) => ({ auction_category_id: c.auction_category_id, name: c.name })),
     teams,
     current: currentView,
+    featured: featured ?? null,
+    next: nextLot ? { lot_id: nextLot.lot_id, lot_number: nextLot.lot_number, player_name: nextLot.player_name } : null,
+    pool,
     lots: lots.map(publicLot),
     counts: {
       total: lots.length,
       sold: sold.length,
       unsold: lots.filter((l) => l.status === 'UNSOLD').length,
-      remaining: lots.filter((l) => l.status === 'PENDING').length,
+      remaining: waiting.length,
       on_block: current ? 1 : 0,
     },
     total_spent: teams.reduce((sum, t) => sum + t.spent, 0),
@@ -137,4 +175,34 @@ const getSnapshot = async (auctionId) => {
 
 const invalidate = (auctionId) => cache.delete(auctionId);
 
-module.exports = { getSnapshot, invalidate };
+/** Landing-card fields derived once on the server so the public page only renders. */
+const toPublicCard = (row) => {
+  let phase;
+  let status_label;
+  let cta_label;
+  let cta_enabled;
+  if (row.status === 'LIVE' || row.status === 'PAUSED') {
+    phase = 'live';
+    status_label = 'Live';
+    cta_label = 'View Live Auction';
+    cta_enabled = true;
+  } else if (row.status === 'COMPLETED' || row.is_legacy) {
+    phase = 'completed';
+    status_label = 'Completed';
+    cta_label = 'View Auction';
+    cta_enabled = true;
+  } else {
+    phase = 'upcoming';
+    status_label = 'Upcoming';
+    cta_label = 'View Live Auction';
+    cta_enabled = false;
+  }
+  return { ...row, phase, status_label, cta_label, cta_enabled };
+};
+
+const listPublicCards = async () => {
+  const rows = await repo.listPublicAuctions();
+  return rows.map(toPublicCard);
+};
+
+module.exports = { getSnapshot, invalidate, listPublicCards };

@@ -148,7 +148,7 @@ export function TournamentRegistrationsPage() {
 
   return (
     <AdminSection>
-      <PageHeader title={`Players: ${tournament?.title}`} description={meta} actions={backLink} />
+      <PageHeader title="Players" description={[tournament?.title, meta].filter(Boolean).join(' · ')} actions={backLink} />
 
       <Table responsive hover className="bg-white shadow-sm align-middle">
         <thead className="table-light">

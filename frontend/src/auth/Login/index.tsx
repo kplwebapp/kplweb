@@ -169,7 +169,7 @@ export default function Login({ navigate }: Props) {
 
   return (
     <LoginRegisterLayout
-      title="Welcome Back"
+      title="Login"
       subtitle="Sign in to your account"
       illustrationTitle="Kansara Premier League"
       illustrationSubtitle="Sign in to manage your profile"

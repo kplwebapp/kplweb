@@ -16,7 +16,7 @@ import {
   type SettingKey,
   type SettingsDraft,
 } from '@/admin/pages/AuctionManage/auctionSettings'
-import { auctionAdminApi, type SeasonOption, type TournamentOption } from '@/services/api/auctionApi'
+import { auctionAdminApi, type TournamentOption } from '@/services/api/auctionApi'
 import { auctionStatusLabel, auctionStatusVariant, formatAuctionDate } from '@/utils/auctionText'
 
 /** /admin/auctions — every auction, newest and live first. */
@@ -83,18 +83,13 @@ export default function AuctionsPage() {
   )
 }
 
-type Options = { seasons: SeasonOption[]; tournaments: TournamentOption[] }
-
 function CreateAuctionModal({ onHide }: { onHide: () => void }) {
   const navigate = useNavigate()
-  const loadOptions = useCallback(
-    () =>
-      Promise.all([auctionAdminApi.seasons(), auctionAdminApi.tournaments()]).then(
-        ([seasons, tournaments]): Options => ({ seasons: seasons.data, tournaments: tournaments.data }),
-      ),
+  const loadTournaments = useCallback(
+    () => auctionAdminApi.tournaments().then((res): TournamentOption[] => res.data),
     [],
   )
-  const { data: options, error: optionsError } = useReloadable(loadOptions, 'auction-options')
+  const { data: tournaments, error: optionsError } = useReloadable(loadTournaments, 'auction-tournaments')
   const [draft, setDraft] = useState<SettingsDraft>(EMPTY_SETTINGS)
   const [categories, setCategories] = useState<CategoryDraft[]>(DEFAULT_CATEGORIES)
   const [error, setError] = useState('')
@@ -105,7 +100,7 @@ function CreateAuctionModal({ onHide }: { onHide: () => void }) {
       const next = { ...prev, [key]: value }
       // Suggest a title from the tournament until the admin types one.
       if (key === 'event_id' && !prev.title.trim()) {
-        const t = options?.tournaments.find((x) => String(x.event_id) === value)
+        const t = tournaments?.find((x) => String(x.event_id) === value)
         if (t) next.title = `${t.title} – Player Auction`
       }
       return next
@@ -139,11 +134,11 @@ function CreateAuctionModal({ onHide }: { onHide: () => void }) {
         <Modal.Body>
           {optionsError && <Alert variant="danger">{optionsError}</Alert>}
           {error && <Alert variant="danger">{error}</Alert>}
-          {!options ? (
+          {!tournaments ? (
             <div className="text-center py-4"><Spinner animation="border" /></div>
           ) : (
             <>
-              <SettingsFields draft={draft} onChange={change} seasons={options.seasons} tournaments={options.tournaments} />
+              <SettingsFields draft={draft} onChange={change} tournaments={tournaments} />
               <h6 className="mt-4">Player categories</h6>
               <p className="small text-muted">
                 Each player is auctioned in one category. Leave base points empty to use the default; set limits per
@@ -155,7 +150,7 @@ function CreateAuctionModal({ onHide }: { onHide: () => void }) {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={onHide} disabled={busy}>Cancel</Button>
-          <Button type="submit" disabled={busy || !options}>{busy ? 'Creating…' : 'Create auction'}</Button>
+          <Button type="submit" disabled={busy || !tournaments}>{busy ? 'Creating…' : 'Create auction'}</Button>
         </Modal.Footer>
       </Form>
     </Modal>

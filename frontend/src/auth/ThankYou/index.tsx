@@ -27,7 +27,7 @@ export default function ThankYou({ navigate }: Props) {
 
   return (
     <LoginRegisterLayout
-      title="Thank You!"
+      title="Thank You"
       subtitle="Your account has been created successfully"
       illustrationTitle="Welcome to KPL"
       illustrationSubtitle="You're now part of the Kansara Premier League community"

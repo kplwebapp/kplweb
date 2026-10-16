@@ -1,17 +1,16 @@
 import { Button, Col, Form, Row, Table } from 'react-bootstrap'
-import type { SeasonOption, TournamentOption } from '@/services/api/auctionApi'
+import type { TournamentOption } from '@/services/api/auctionApi'
 import { newCategory, type CategoryDraft, type SettingKey, type SettingsDraft } from './auctionSettings'
 
 type FieldsProps = {
   draft: SettingsDraft
   onChange: (key: SettingKey, value: string) => void
-  seasons: SeasonOption[]
   tournaments: TournamentOption[]
   currentAuctionId?: number
   isLocked?: (key: SettingKey) => boolean
 }
 
-export function SettingsFields({ draft, onChange, seasons, tournaments, currentAuctionId, isLocked = () => false }: FieldsProps) {
+export function SettingsFields({ draft, onChange, tournaments, currentAuctionId, isLocked = () => false }: FieldsProps) {
   const field = (key: SettingKey) => ({
     value: draft[key],
     disabled: isLocked(key),
@@ -21,27 +20,16 @@ export function SettingsFields({ draft, onChange, seasons, tournaments, currentA
 
   return (
     <Row className="g-3">
-      <Col md={8}>
+      <Col md={6}>
         <Form.Group controlId="auction-title">
-          <Form.Label>Title</Form.Label>
+          <Form.Label>Auction title</Form.Label>
           <Form.Control maxLength={200} required {...field('title')} />
-        </Form.Group>
-      </Col>
-      <Col md={4}>
-        <Form.Group controlId="auction-season">
-          <Form.Label>Season</Form.Label>
-          <Form.Select required {...field('season_id')}>
-            <option value="">Choose…</option>
-            {seasons.map((s) => (
-              <option key={s.season_id} value={s.season_id}>{s.season_name}</option>
-            ))}
-          </Form.Select>
         </Form.Group>
       </Col>
       <Col md={6}>
         <Form.Group controlId="auction-tournament">
           <Form.Label>Cricket tournament</Form.Label>
-          <Form.Select {...field('event_id')}>
+          <Form.Select {...field('event_id')} disabled={isLocked('event_id')}>
             <option value="">Not linked yet</option>
             {available.map((t) => (
               <option key={t.event_id} value={t.event_id}>
@@ -52,6 +40,7 @@ export function SettingsFields({ draft, onChange, seasons, tournaments, currentA
           <Form.Text>Its registered players form the player pool, and its teams join automatically.</Form.Text>
         </Form.Group>
       </Col>
+
       <Col md={3}>
         <Form.Group controlId="auction-date">
           <Form.Label>Date and time</Form.Label>
@@ -64,33 +53,32 @@ export function SettingsFields({ draft, onChange, seasons, tournaments, currentA
           <Form.Control maxLength={200} {...field('venue')} />
         </Form.Group>
       </Col>
-
-      <Col sm={6} lg={4}>
+      <Col md={3}>
         <Form.Group controlId="auction-budget">
           <Form.Label>Points per team</Form.Label>
           <Form.Control type="number" min={0} step={1} {...field('budget_per_team')} />
-          <Form.Text>Default budget; each team's can be changed.</Form.Text>
         </Form.Group>
       </Col>
-      <Col sm={3} lg={2}>
-        <Form.Group controlId="auction-min-squad">
-          <Form.Label>Min squad</Form.Label>
-          <Form.Control type="number" min={0} step={1} {...field('min_players_per_team')} />
-        </Form.Group>
-      </Col>
-      <Col sm={3} lg={2}>
-        <Form.Group controlId="auction-max-squad">
-          <Form.Label>Max squad</Form.Label>
-          <Form.Control type="number" min={1} step={1} {...field('max_players_per_team')} />
-        </Form.Group>
-      </Col>
-      <Col sm={6} lg={2}>
+      <Col md={3}>
         <Form.Group controlId="auction-increment">
           <Form.Label>Bid increment</Form.Label>
           <Form.Control type="number" min={1} step={1} {...field('min_bid_increment')} />
         </Form.Group>
       </Col>
-      <Col sm={6} lg={2}>
+
+      <Col md={3}>
+        <Form.Group controlId="auction-min-squad">
+          <Form.Label>Min squad</Form.Label>
+          <Form.Control type="number" min={0} step={1} {...field('min_players_per_team')} />
+        </Form.Group>
+      </Col>
+      <Col md={3}>
+        <Form.Group controlId="auction-max-squad">
+          <Form.Label>Max squad</Form.Label>
+          <Form.Control type="number" min={1} step={1} {...field('max_players_per_team')} />
+        </Form.Group>
+      </Col>
+      <Col md={3}>
         <Form.Group controlId="auction-base">
           <Form.Label>Base points</Form.Label>
           <Form.Control type="number" min={0} step={1} {...field('default_base_price')} />

@@ -3,6 +3,7 @@ const ApiError = require('../../utils/ApiError');
 const repo = require('./auctionManage.repository');
 const snapshot = require('./auctionSnapshot');
 const stream = require('./auctionStream');
+const { toPublicPath, removeUploadedFile } = require('../../utils/uploadFiles');
 const { LIFECYCLE, SETUP_STATUSES, OPEN_STATUSES } = require('./auction.constants');
 
 const CRICKET_SLUG = 'cricket';
@@ -23,7 +24,10 @@ async function mutate(auctionId, actorId, fn) {
     const auction = rows[0];
     if (!auction) throw new ApiError(404, 'Auction not found');
     if (auction.is_legacy) {
-      throw new ApiError(409, 'This is a legacy auction kept as history; it cannot be changed.');
+      throw new ApiError(
+        409,
+        'This auction is kept as history from before the auction system and cannot be changed. Create a new auction to run live bidding.'
+      );
     }
 
     const events = [];
@@ -156,6 +160,20 @@ const lockCurrentLot = async (client, auction, lotId) => {
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj[k] !== undefined).map((k) => [k, obj[k]]));
 
+/** Use the given season, or the latest one when the admin form does not send a season. */
+const resolveSeasonId = async (client, seasonId) => {
+  if (seasonId) {
+    const season = await client.query('SELECT season_id FROM seasons WHERE season_id = $1', [seasonId]);
+    if (!season.rows[0]) throw new ApiError(400, 'Season not found');
+    return season.rows[0].season_id;
+  }
+  const latest = await client.query(
+    'SELECT season_id FROM seasons ORDER BY season_year DESC, season_id DESC LIMIT 1'
+  );
+  if (!latest.rows[0]) throw new ApiError(400, 'No season exists yet. Add a season before creating an auction.');
+  return latest.rows[0].season_id;
+};
+
 const SETTING_FIELDS = [
   'title', 'description', 'rules', 'auction_date', 'venue', 'season_id', 'event_id',
   'budget_per_team', 'max_players_per_team', 'min_players_per_team', 'min_bid_increment', 'default_base_price',
@@ -173,8 +191,7 @@ const service = {
     let auctionId;
     try {
       await client.query('BEGIN');
-      const season = await client.query('SELECT season_id FROM seasons WHERE season_id = $1', [body.season_id]);
-      if (!season.rows[0]) throw new ApiError(400, 'Season not found');
+      const seasonId = await resolveSeasonId(client, body.season_id);
       if (body.event_id) await loadTournament(client, body.event_id);
       if ((body.min_players_per_team ?? 0) > body.max_players_per_team) {
         throw new ApiError(400, 'Minimum squad size cannot be more than the maximum.');
@@ -186,7 +203,7 @@ const service = {
                                default_base_price, created_by, updated_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, $9, $10, $11, $12, $13, $13)
          RETURNING auction_id`,
-        [body.season_id, body.event_id ?? null, body.title, body.description ?? null, body.rules ?? null,
+        [seasonId, body.event_id ?? null, body.title, body.description ?? null, body.rules ?? null,
           body.auction_date ?? null, body.venue ?? null, body.budget_per_team, body.max_players_per_team,
           body.min_players_per_team ?? 0, body.min_bid_increment, body.default_base_price ?? 0, actorId]
       );
@@ -759,6 +776,42 @@ const service = {
       [categoryId, auction.event_id]
     );
     return rows;
+  },
+
+  async setImage(auctionId, file) {
+    if (!file) throw new ApiError(400, 'Choose an image file to upload.');
+    const newPath = toPublicPath(file.filename);
+    const previous = await repo.findImageById(auctionId);
+    if (!previous) {
+      await removeUploadedFile(newPath);
+      throw new ApiError(404, 'Auction not found');
+    }
+    const row = await repo.findAuction(auctionId);
+    if (row?.is_legacy) {
+      await removeUploadedFile(newPath);
+      throw new ApiError(
+        409,
+        'This auction is kept as history from before the auction system and cannot be changed. Create a new auction to run live bidding.'
+      );
+    }
+    const item = await repo.setImage(auctionId, newPath);
+    await removeUploadedFile(previous.image_url);
+    return item;
+  },
+
+  async removeImage(auctionId) {
+    const previous = await repo.findImageById(auctionId);
+    if (!previous) throw new ApiError(404, 'Auction not found');
+    const row = await repo.findAuction(auctionId);
+    if (row?.is_legacy) {
+      throw new ApiError(
+        409,
+        'This auction is kept as history from before the auction system and cannot be changed. Create a new auction to run live bidding.'
+      );
+    }
+    const item = await repo.setImage(auctionId, null);
+    await removeUploadedFile(previous.image_url);
+    return item;
   },
 };
 

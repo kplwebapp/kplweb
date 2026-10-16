@@ -9,12 +9,19 @@ export type LotStatus = 'PENDING' | 'ON_BLOCK' | 'SOLD' | 'UNSOLD' | 'WITHDRAWN'
 export interface PublicAuctionSummary {
   auction_id: number;
   title: string;
+  description: string | null;
   status: AuctionStatus;
   is_legacy: boolean;
   auction_date: string | null;
+  venue: string | null;
+  image_url: string | null;
   season_name: string;
   season_year: number;
   event_title: string | null;
+  phase: 'live' | 'completed' | 'upcoming';
+  status_label: string;
+  cta_label: string;
+  cta_enabled: boolean;
 }
 
 export interface PublicLot {
@@ -25,10 +32,16 @@ export interface PublicLot {
   category: string | null;
   base_price: number;
   status: LotStatus;
+  status_label: string;
   team_id: number | null;
   team_name: string | null;
   sold_price: number | null;
   profile_photo: string | null;
+  date_of_birth: string | null;
+  batting_style: string | null;
+  bowling_style: string | null;
+  is_wicketkeeper: string | null;
+  points_spent?: number | null;
 }
 
 export interface LiveBid {
@@ -75,15 +88,18 @@ export interface AuctionSnapshot {
   teams: PublicTeam[];
   current:
     | (PublicLot & {
-        batting_style: string | null;
-        bowling_style: string | null;
-        is_wicketkeeper: string | null;
         bid_round: number;
         highest: { amount: number; team_id: number; team_name: string } | null;
         next_min_bid: number;
+        points_spent: number | null;
         bids: LiveBid[];
       })
     | null;
+  /** Player shown in the detail panel (current on-block, or last sold/unsold). */
+  featured: PublicLot | null;
+  next: { lot_id: number; lot_number: number; player_name: string } | null;
+  /** Registered players still shown in the list (sold players excluded). */
+  pool: PublicLot[];
   lots: PublicLot[];
   counts: { total: number; sold: number; unsold: number; remaining: number; on_block: number };
   total_spent: number;
@@ -137,6 +153,7 @@ export interface AuctionDetailRecord {
   is_legacy: boolean;
   auction_date: string | null;
   venue: string | null;
+  image_url: string | null;
   season_id: number;
   season_name: string;
   season_year: number;
@@ -315,7 +332,8 @@ export interface AuctionSettingsInput {
   rules: string | null;
   auction_date: string | null;
   venue: string | null;
-  season_id: number;
+  /** Optional on create — the API uses the latest season when omitted. */
+  season_id?: number;
   event_id: number | null;
   budget_per_team: number;
   max_players_per_team: number;
@@ -338,6 +356,16 @@ export const auctionAdminApi = {
 
   detail: (id: number) => apiClient.get<ApiEnvelope<AuctionDetail>>(base(id)),
   update: (id: number, body: Partial<AuctionSettingsInput>) => apiClient.patch<ApiEnvelope<AuctionDetailRecord>>(base(id), body),
+  uploadImage: (id: number, file: File) =>
+    apiClient.upload<ApiEnvelope<{ auction_id: number; title: string; image_url: string | null; status: AuctionStatus }>>(
+      `${base(id)}/image`,
+      file,
+      'image',
+    ),
+  removeImage: (id: number) =>
+    apiClient.delete<ApiEnvelope<{ auction_id: number; title: string; image_url: string | null; status: AuctionStatus }>>(
+      `${base(id)}/image`,
+    ),
   setCategories: (id: number, categories: CategoryInput[]) =>
     apiClient.put<ApiEnvelope<AuctionCategory[]>>(`${base(id)}/categories`, { categories }),
   teamOptions: (id: number) => apiClient.get<ApiEnvelope<TeamOption[]>>(`${base(id)}/team-options`),

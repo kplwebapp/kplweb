@@ -46,6 +46,12 @@ export function formatAuctionDate(value: string | null) {
   return new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+export function truncateAuctionText(value: string | null | undefined, max = 160) {
+  const text = value?.trim()
+  if (!text) return ''
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text
+}
+
 /** Cricketer profile answers shown under a player's name. */
 export function playerStyle(p: { batting_style: string | null; bowling_style: string | null; is_wicketkeeper: string | null }) {
   return [

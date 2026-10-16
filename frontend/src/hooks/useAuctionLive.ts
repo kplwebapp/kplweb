@@ -3,16 +3,19 @@ import { auctionPublicApi, type AuctionSnapshot } from '@/services/api/auctionAp
 
 export type LiveMode = 'connecting' | 'live' | 'reconnecting' | 'polling'
 
+/** Fallback poll when the live stream is unavailable. */
 const POLL_MS = 4000
+/** Always re-fetch the board at least this often, including while streaming. */
+const REFRESH_MS = 2 * 60 * 1000
 const NOT_FOUND = 'Auction not found'
 export const UNAVAILABLE = 'This auction is not available.'
 
 type State = { id: number; snapshot: AuctionSnapshot | null; mode: LiveMode; error: string }
 
 /**
- * The public view of an auction, kept up to date. Listens to the server's live stream; if the
- * stream is refused or the browser cannot use it, polls instead. Older snapshots never replace
- * newer ones.
+ * The public view of an auction, kept up to date. Listens to the server's live stream so that
+ * sold / unsold / next-player changes appear immediately; also refreshes every 2 minutes as a
+ * safety net. If the stream is refused or unavailable, polls every few seconds instead.
  */
 export function useAuctionLive(auctionId: number | null) {
   const [state, setState] = useState<State | null>(null)
@@ -21,6 +24,7 @@ export function useAuctionLive(auctionId: number | null) {
     if (!auctionId) return
     let closed = false
     let poll: number | undefined
+    let refresh: number | undefined
     let source: EventSource | null = null
 
     const update = (patch: Partial<State>) => {
@@ -49,6 +53,7 @@ export function useAuctionLive(auctionId: number | null) {
     const gone = () => {
       source?.close()
       stopPolling()
+      stopRefresh()
       update({ snapshot: null, error: UNAVAILABLE })
     }
 
@@ -63,17 +68,34 @@ export function useAuctionLive(auctionId: number | null) {
       poll = undefined
     }
 
+    const startRefresh = () => {
+      if (refresh) return
+      refresh = window.setInterval(fetchOnce, REFRESH_MS)
+    }
+    const stopRefresh = () => {
+      window.clearInterval(refresh)
+      refresh = undefined
+    }
+
+    // Immediate load, then a 2-minute refresh for the whole board (player panel included).
+    fetchOnce()
+    startRefresh()
+
     if (typeof EventSource === 'undefined') {
       startPolling()
     } else {
       source = new EventSource(auctionPublicApi.streamUrl(auctionId))
       source.addEventListener('snapshot', (event) => {
         stopPolling()
-        update({ snapshot: JSON.parse((event as MessageEvent<string>).data) as AuctionSnapshot, mode: 'live', error: '' })
+        update({
+          snapshot: JSON.parse((event as MessageEvent<string>).data) as AuctionSnapshot,
+          mode: 'live',
+          error: '',
+        })
       })
       source.addEventListener('gone', gone)
       source.onerror = () => {
-        // A refused stream (e.g. too many viewers) closes for good; a dropped one reconnects by itself.
+        // A refused stream closes for good; a dropped one reconnects by itself.
         if (source?.readyState === EventSource.CLOSED) {
           startPolling()
         } else {
@@ -87,6 +109,7 @@ export function useAuctionLive(auctionId: number | null) {
       closed = true
       source?.close()
       stopPolling()
+      stopRefresh()
     }
   }, [auctionId])
 

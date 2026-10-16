@@ -1,4 +1,5 @@
 import { Container, Card } from 'react-bootstrap'
+import { usePageTitle } from '@/hooks/usePageTitle'
 
 type Props = {
   title: string
@@ -8,13 +9,15 @@ type Props = {
 }
 
 export default function PageHeader({ title, description, children, actions }: Props) {
+  usePageTitle(title)
+
   return (
     <div className="mb-4">
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-        <div>
-          <h2 className="mb-1">{title}</h2>
-          {description && <p className="text-muted mb-0">{description}</p>}
-        </div>
+        <header className="page-heading">
+          <h1 className="page-heading__title">{title}</h1>
+          {description && <p className="page-heading__description">{description}</p>}
+        </header>
         {actions}
       </div>
       {children && (

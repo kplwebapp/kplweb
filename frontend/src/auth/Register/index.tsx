@@ -209,7 +209,7 @@ export default function Register({ navigate }: Props) {
 
   return (
     <LoginRegisterLayout
-      title="Create Your Account"
+      title="Register"
       subtitle="Join Kansara Premier League today"
       illustrationTitle="Join the Community"
       illustrationSubtitle="Be part of the cricket revolution"

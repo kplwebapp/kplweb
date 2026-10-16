@@ -36,7 +36,7 @@ const abilities = async (req) => {
 
 const controller = {
   // Public (read-only)
-  publicList: ok(() => repo.listPublicAuctions()),
+  publicList: ok(() => snapshot.listPublicCards()),
   publicSnapshot: ok(async (req) => {
     const data = await snapshot.getSnapshot(auctionId(req));
     if (!data) throw new ApiError(404, 'Auction not found');
@@ -66,6 +66,8 @@ const controller = {
   create: asyncHandler(async (req, res) =>
     ApiResponse.success(res, await service.create(req.body, req.user.id), 'Auction created', 201)),
   update: ok((req) => service.update(auctionId(req), req.body, req.user.id), 'Auction updated'),
+  uploadImage: ok((req) => service.setImage(auctionId(req), req.file), 'Image uploaded'),
+  removeImage: ok((req) => service.removeImage(auctionId(req)), 'Image removed'),
   setCategories: ok((req) => service.setCategories(auctionId(req), req.body.categories, req.user.id), 'Categories saved'),
   setTeams: ok((req) => service.setTeams(auctionId(req), req.body.teams, req.user.id), 'Teams saved'),
   addPlayers: ok((req) => service.addPlayers(auctionId(req), req.body, req.user.id), 'Players added'),

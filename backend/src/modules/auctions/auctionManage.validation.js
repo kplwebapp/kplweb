@@ -29,7 +29,8 @@ const category = Joi.object({
 const createAuctionSchema = Joi.object({
   ...settings,
   title: settings.title.required(),
-  season_id: settings.season_id.required(),
+  // Season is optional: when omitted the service uses the latest season.
+  season_id: settings.season_id,
   budget_per_team: settings.budget_per_team.required(),
   max_players_per_team: settings.max_players_per_team.required(),
   min_bid_increment: settings.min_bid_increment.required(),

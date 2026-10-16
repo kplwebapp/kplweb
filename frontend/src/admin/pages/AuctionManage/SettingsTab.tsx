@@ -1,7 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ChangeEvent } from 'react'
 import { Alert, Button, Card, Form, Spinner } from 'react-bootstrap'
 import { useReloadable } from '@/admin/hooks/useReloadable'
 import { auctionAdminApi, type AuctionSettingsInput } from '@/services/api/auctionApi'
+import defaultTournamentImage from '@/assets/default-tournament.svg'
+import {
+  ACTIVITY_IMAGE_ACCEPT,
+  getUploadUrl,
+  validateActivityImage,
+} from '@/utils/activityImage'
 import { CategoryEditor, SettingsFields } from './AuctionSettingsForm'
 import {
   LIVE_EDITABLE,
@@ -21,15 +27,11 @@ const SETUP = ['DRAFT', 'READY']
 
 export default function SettingsTab({ detail, auctionId, run }: TabProps) {
   const { auction, can } = detail
-  const loadOptions = useCallback(
-    () =>
-      Promise.all([auctionAdminApi.seasons(), auctionAdminApi.tournaments()]).then(([seasons, tournaments]) => ({
-        seasons: seasons.data,
-        tournaments: tournaments.data,
-      })),
+  const loadTournaments = useCallback(
+    () => auctionAdminApi.tournaments().then((res) => res.data),
     [],
   )
-  const { data: options, error: optionsError } = useReloadable(loadOptions, 'auction-options')
+  const { data: tournaments, error: optionsError } = useReloadable(loadTournaments, 'auction-tournaments')
   const [saved, setSaved] = useState(() => settingsFromAuction(auction))
   const [draft, setDraft] = useState(saved)
   const [categories, setCategories] = useState<CategoryDraft[]>(() => categoriesFromApi(detail.categories))
@@ -40,7 +42,9 @@ export default function SettingsTab({ detail, auctionId, run }: TabProps) {
   const editable = can.manage && !auction.is_legacy && OPEN.includes(auction.status)
   const inSetup = SETUP.includes(auction.status)
   const isLocked = (key: SettingKey) => !editable || (!inSetup && !LIVE_EDITABLE.includes(key))
-  const changedKeys = (Object.keys(draft) as SettingKey[]).filter((k) => draft[k] !== saved[k])
+  const changedKeys = (Object.keys(draft) as SettingKey[]).filter(
+    (k) => k !== 'season_id' && draft[k] !== saved[k],
+  )
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,8 +77,65 @@ export default function SettingsTab({ detail, auctionId, run }: TabProps) {
     setBusy(false)
   }
 
+  const imageSrc = auction.image_url?.trim()
+    ? getUploadUrl(auction.image_url)
+    : defaultTournamentImage
+
+  const onImagePick = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const problem = validateActivityImage(file)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    setError('')
+    setBusy(true)
+    await run(() => auctionAdminApi.uploadImage(auctionId, file), 'Cover image uploaded.')
+    setBusy(false)
+  }
+
+  const onImageRemove = async () => {
+    setBusy(true)
+    await run(() => auctionAdminApi.removeImage(auctionId), 'Cover image removed.')
+    setBusy(false)
+  }
+
   return (
     <>
+      <Card className="border-0 shadow-sm mb-4">
+        <Card.Header className="bg-white fw-semibold">Cover image</Card.Header>
+        <Card.Body>
+          <p className="small text-muted">
+            Shown on the public auction landing cards. If none is set, the linked tournament image is used when
+            available.
+          </p>
+          <div className="d-flex flex-wrap align-items-start gap-3">
+            <img
+              src={imageSrc}
+              alt=""
+              style={{ width: 220, height: 124, objectFit: 'cover', borderRadius: 8, background: '#e8eef7' }}
+            />
+            {can.manage && !auction.is_legacy && (
+              <div className="d-flex flex-column gap-2">
+                <Form.Control
+                  type="file"
+                  accept={ACTIVITY_IMAGE_ACCEPT}
+                  disabled={busy}
+                  onChange={onImagePick}
+                />
+                {auction.image_url && (
+                  <Button variant="outline-danger" size="sm" disabled={busy} onClick={onImageRemove}>
+                    Remove image
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </Card.Body>
+      </Card>
+
       <Card className="border-0 shadow-sm mb-4">
         <Card.Header className="bg-white fw-semibold">Auction settings</Card.Header>
         <Card.Body>
@@ -84,7 +145,7 @@ export default function SettingsTab({ detail, auctionId, run }: TabProps) {
               The auction has started: only the title, date, venue, description, rules and bid increment can change.
             </Alert>
           )}
-          {!options ? (
+          {!tournaments ? (
             <div className="text-center py-4"><Spinner animation="border" /></div>
           ) : (
             <Form onSubmit={save} noValidate>
@@ -92,8 +153,7 @@ export default function SettingsTab({ detail, auctionId, run }: TabProps) {
               <SettingsFields
                 draft={draft}
                 onChange={(key, value) => setDraft((prev) => ({ ...prev, [key]: value }))}
-                seasons={options.seasons}
-                tournaments={options.tournaments}
+                tournaments={tournaments}
                 currentAuctionId={auctionId}
                 isLocked={isLocked}
               />

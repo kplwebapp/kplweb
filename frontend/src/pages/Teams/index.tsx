@@ -1,4 +1,4 @@
-import { Table, Badge } from 'react-bootstrap'
+import { Table, Badge, Card } from 'react-bootstrap'
 import PageShell from '@/components/common/PageShell'
 
 const teams = [
@@ -13,24 +13,28 @@ const teams = [
 export default function Teams() {
   return (
     <PageShell title="Teams" description="Browse all KPL teams and squads.">
-      <Table responsive striped bordered hover className="mb-0">
-        <thead className="table-light">
-          <tr>
-            <th>Team</th>
-            <th>Code</th>
-            <th>Captain</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team) => (
-            <tr key={team.code}>
-              <td>{team.name}</td>
-              <td><Badge bg="secondary">{team.code}</Badge></td>
-              <td>{team.captain}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table responsive striped hover className="mb-0">
+            <thead className="table-light">
+              <tr>
+                <th>Team</th>
+                <th>Code</th>
+                <th>Captain</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teams.map((team) => (
+                <tr key={team.code}>
+                  <td>{team.name}</td>
+                  <td><Badge bg="secondary">{team.code}</Badge></td>
+                  <td>{team.captain}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
     </PageShell>
   )
 }

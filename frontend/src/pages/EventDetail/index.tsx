@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, Badge, Card, Col, Container, Row, Spinner } from 'react-bootstrap'
 import PageShell from '@/components/common/PageShell'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { activitiesApi, type Activity, type ActivityKind } from '@/services/api/activitiesApi'
 import { formatEventDateRange } from '@/utils/eventDate'
 import { activityImageFallback, getActivityImageUrl } from '@/utils/activityImage'
@@ -32,19 +33,23 @@ export default function ActivityDetail({ kind, singular, label, path }: Props) {
     return () => { cancelled = true }
   }, [slug])
 
+  const item = result?.slug === slug ? result.item : null
+  const pageTitle =
+    item && item.kind === kind ? item.title : item === null && result?.slug === slug ? `${singular} not found` : label
+  usePageTitle(pageTitle)
+
   const backLink = (
     <Link to={path} className="btn btn-outline-primary btn-sm">Back to all {label.toLowerCase()}</Link>
   )
 
   if (result?.slug !== slug) {
     return (
-      <PageShell title={label}>
-        <div className="text-center py-4"><Spinner animation="border" /></div>
-      </PageShell>
+      <Container className="py-5 text-center">
+        <Spinner animation="border" />
+      </Container>
     )
   }
 
-  const { item } = result
   if (!item || item.kind !== kind) {
     return (
       <PageShell title={`${singular} not found`}>

@@ -75,7 +75,7 @@ export function settingsToInput(d: SettingsDraft): AuctionSettingsInput {
     rules: text(d.rules),
     auction_date: d.auction_date ? new Date(d.auction_date).toISOString() : null,
     venue: text(d.venue),
-    season_id: int(d.season_id),
+    ...(d.season_id ? { season_id: int(d.season_id) } : {}),
     event_id: d.event_id ? int(d.event_id) : null,
     budget_per_team: int(d.budget_per_team),
     max_players_per_team: int(d.max_players_per_team),
@@ -88,7 +88,6 @@ export function settingsToInput(d: SettingsDraft): AuctionSettingsInput {
 /** Returns a message for the first problem, or '' when the settings can be saved. */
 export function validateSettings(d: SettingsDraft): string {
   if (!d.title.trim()) return 'Please enter a title.'
-  if (!d.season_id) return 'Please choose a season.'
   const numbers: [SettingKey, string, number][] = [
     ['budget_per_team', 'Points per team', 0],
     ['max_players_per_team', 'Maximum squad size', 1],

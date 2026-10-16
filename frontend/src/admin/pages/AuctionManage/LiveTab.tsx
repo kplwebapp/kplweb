@@ -13,6 +13,15 @@ export default function LiveTab(props: TabProps) {
   const { auction, current } = detail
   const running = auction.status === 'LIVE' || auction.status === 'PAUSED'
 
+  if (auction.is_legacy) {
+    return (
+      <Alert variant="info">
+        This auction is kept as history from before the auction system. Create a new auction under{' '}
+        <strong>Auctions → New auction</strong> to run live bidding.
+      </Alert>
+    )
+  }
+
   if (!running) {
     const message =
       auction.status === 'COMPLETED'
