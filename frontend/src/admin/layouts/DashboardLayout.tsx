@@ -12,6 +12,7 @@ import {
   categoryPath,
   contentGroup,
   dashboardItem,
+  liveAuctionItem,
   manageCategoriesPath,
   playersPath,
   teamsItem,
@@ -180,7 +181,9 @@ export default function DashboardLayout() {
 
   const kindGroup = (kind: ActivityKind): NavItem[] => [
     ...activeOf(kind).map((c) => ({ label: c.name, path: categoryPath(kind, c.slug), icon: categoryIcon(kind, c.slug) })),
-    ...(kind === 'TOURNAMENT' ? [teamsItem, ...(canAuction ? [auctionsItem] : [])] : []),
+    ...(kind === 'TOURNAMENT'
+      ? [teamsItem, ...(canAuction ? [liveAuctionItem, auctionsItem] : [])]
+      : []),
     { label: 'Manage categories', path: manageCategoriesPath(kind), icon: '⚙️' },
   ]
 

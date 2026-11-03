@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import './tournament.scss'
 
-export type EmptyArt = 'countdown' | 'teams' | 'standings' | 'photos' | 'videos'
+export type EmptyArt = 'countdown' | 'teams' | 'standings' | 'photos' | 'videos' | 'auction'
 
 const PRIMARY = 'var(--primary, #000066)'
 const ACCENT = 'var(--accent-gold, #FFD700)'
@@ -78,6 +78,31 @@ function Art({ type }: { type: EmptyArt }) {
           <circle cx="80" cy="61" r="16" fill="#fff" />
           <path d="M75 52 l14 9 l-14 9 z" fill={PRIMARY} />
           <rect x="60" y="100" width="40" height="5" rx="2.5" fill={ACCENT} />
+        </svg>
+      )
+    case 'auction':
+      return (
+        <svg viewBox="0 0 160 120" aria-hidden="true">
+          <ellipse cx="80" cy="104" rx="54" ry="8" fill={SOFT} />
+          <rect x="28" y="78" width="72" height="18" rx="4" fill={PRIMARY} />
+          <rect x="36" y="70" width="56" height="10" rx="3" fill={SOFT} stroke={PRIMARY} strokeWidth="2" />
+          <text x="64" y="90" textAnchor="middle" fontSize="9" fontWeight="700" fill="#fff">
+            ON BLOCK
+          </text>
+          <circle cx="118" cy="42" r="22" fill={SOFT} stroke={PRIMARY} strokeWidth="3" />
+          <path d="M118 42 V28" stroke={PRIMARY} strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M118 42 L128 48" stroke={ACCENT} strokeWidth="3.5" strokeLinecap="round" />
+          <circle cx="118" cy="42" r="3" fill={PRIMARY} />
+          <circle cx="58" cy="40" r="12" fill={SOFT} stroke={PRIMARY} strokeWidth="3" />
+          <path
+            d="M40 68 c0 -14 8 -22 18 -22 s18 8 18 22"
+            fill={SOFT}
+            stroke={PRIMARY}
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+          <path d="M52 40 h12" stroke={PRIMARY} strokeWidth="2.5" strokeLinecap="round" opacity="0.35" />
+          <path d="M58 34 v12" stroke={PRIMARY} strokeWidth="2.5" strokeLinecap="round" opacity="0.35" />
         </svg>
       )
   }

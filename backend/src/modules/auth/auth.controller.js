@@ -32,4 +32,22 @@ const me = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, user);
 });
 
-module.exports = { register, login, adminLogin, refresh, me };
+const requestMobileOtp = asyncHandler(async (req, res) => {
+  const result = await authService.requestMobileOtp(req.body);
+  return ApiResponse.success(res, result, result.message || 'OTP sent');
+});
+
+const verifyMobileOtp = asyncHandler(async (req, res) => {
+  const result = await authService.verifyMobileOtp(req.body);
+  return ApiResponse.success(res, result, 'Login successful');
+});
+
+module.exports = {
+  register,
+  login,
+  adminLogin,
+  refresh,
+  me,
+  requestMobileOtp,
+  verifyMobileOtp,
+};

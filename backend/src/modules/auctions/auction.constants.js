@@ -1,20 +1,24 @@
 const AUCTION_PLAYER_CATEGORIES = Object.freeze([
+  'Icon Player',
+  'All Rounder',
   'Batsman',
-  'Bowler',
-  'All-rounder',
+  'Bowlers',
+  'Other Players',
 ]);
 
 const DEFAULT_POINTS_PER_TEAM = 100000;
-const DEFAULT_MAX_PLAYERS_PER_TEAM = 16;
+const DEFAULT_MAX_PLAYERS_PER_TEAM = 15;
 
 function normalizeCategory(role) {
   if (!role) return null;
   const normalized = String(role).trim().toLowerCase();
+  if (normalized.includes('icon')) return 'Icon Player';
   if (normalized === 'batsman') return 'Batsman';
-  if (normalized === 'bowler') return 'Bowler';
+  if (normalized === 'bowler' || normalized === 'bowlers') return 'Bowlers';
   if (normalized === 'all-rounder' || normalized === 'all rounder' || normalized === 'allrounder') {
-    return 'All-rounder';
+    return 'All Rounder';
   }
+  if (normalized.includes('other')) return 'Other Players';
   return null;
 }
 

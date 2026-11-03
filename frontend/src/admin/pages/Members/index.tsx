@@ -104,7 +104,7 @@ export default function MembersPage() {
     <AdminSection>
       <PageHeader
         title="Members"
-        description="Review and approve members who register via the public site."
+        description="Review and approve community members who register on the website or the mobile app. Approving activates login on both."
         actions={
           <ButtonGroup size="sm">
             <Button

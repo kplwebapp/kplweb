@@ -1,9 +1,15 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const env = require('../../config/env');
 const ApiError = require('../../utils/ApiError');
+const logger = require('../../utils/logger');
 const authRepository = require('./auth.repository');
+const changeRepository = require('../profile/profile.change.repository');
 const pool = require('../../config/database');
+
+const digitsOnly = (value) => String(value || '').replace(/\D/g, '');
+const generateOtp = () => String(crypto.randomInt(100000, 999999));
 
 const signTokens = (userId) => {
   const accessToken = jwt.sign({ sub: userId }, env.jwt.secret, { expiresIn: env.jwt.expiresIn });
@@ -40,6 +46,12 @@ const register = async (body) => {
 
   const existing = await authRepository.findByEmail(email);
   if (existing) throw new ApiError(409, 'Email already registered');
+
+  const mobileDigits = digitsOnly(mobile);
+  if (mobileDigits) {
+    const existingMobile = await authRepository.findByMobileDigits(mobileDigits);
+    if (existingMobile) throw new ApiError(409, 'Mobile number already registered');
+  }
 
   let firstName;
   let middleName = body.middleName || null;
@@ -134,4 +146,145 @@ const refresh = async (refreshToken) => {
 
 const me = async (userId) => getUserWithRoles(userId);
 
-module.exports = { register, login, adminLogin, refresh, me };
+/** Temporary mobile allowlist for app testing (must match mobile ALLOWED_LOGIN_MOBILES). */
+const DEV_LOGIN_MOBILES = new Set(['9726101600']);
+
+const isDevLoginMobile = (digits) => {
+  if (env.nodeEnv === 'production') return false;
+  return [...DEV_LOGIN_MOBILES].some((allowed) => digits === allowed || digits.endsWith(allowed));
+};
+
+/**
+ * Non-prod only: ensure the allowlisted test mobile can log in without waiting for admin approval.
+ * Creates a PLAYER account when missing, or activates an existing pending one.
+ */
+const ensureDevLoginUser = async (digits) => {
+  let user = await authRepository.findByMobileDigits(digits);
+  if (user) {
+    if (!user.is_active) {
+      user = await authRepository.setActive(user.user_id, true);
+    }
+    return user;
+  }
+
+  const email = `mobile${digits}@kpl.local`;
+  const existingEmail = await authRepository.findByEmail(email);
+  if (existingEmail) {
+    await pool.query(
+      `UPDATE users SET mobile = $2, is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1`,
+      [existingEmail.user_id, digits]
+    );
+    return authRepository.findByMobileDigits(digits);
+  }
+
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
+  user = await authRepository.createUser({
+    firstName: 'KPL',
+    middleName: null,
+    lastName: 'Member',
+    fullName: 'KPL Member',
+    email,
+    passwordHash,
+    mobile: digits,
+    dob: null,
+    vibhaag: null,
+    bloodGroup: null,
+  });
+  await authRepository.setActive(user.user_id, true);
+  await authRepository.createPlayer(user.user_id);
+  await authRepository.assignRole(user.user_id, 'PLAYER');
+  return authRepository.findByMobileDigits(digits);
+};
+
+/**
+ * Mobile OTP login for the community app.
+ * Reuses otp_verifications (same pattern as profile change OTPs).
+ * SMS gateway is not wired yet — OTP is logged server-side; in non-production
+ * responses may include devOtp for local testing.
+ */
+const requestMobileOtp = async ({ mobile }) => {
+  const digits = digitsOnly(mobile);
+  if (digits.length < 10) {
+    throw new ApiError(400, 'Enter a valid mobile number');
+  }
+
+  let user = await authRepository.findByMobileDigits(digits);
+  if (!user && isDevLoginMobile(digits)) {
+    user = await ensureDevLoginUser(digits);
+  }
+  if (!user) {
+    throw new ApiError(404, 'No account found for this mobile number. Please register.');
+  }
+
+  if (!user.is_active) {
+    if (isDevLoginMobile(digits)) {
+      user = await ensureDevLoginUser(digits);
+    } else {
+      throw new ApiError(
+        403,
+        'Your account is pending approval. Please wait for an administrator to approve your registration.'
+      );
+    }
+  }
+
+  const otp = generateOtp();
+  await changeRepository.createOtpVerification(user.user_id, otp, otp);
+  logger.info('Mobile login OTP generated', { userId: user.user_id, mobile: user.mobile });
+  console.log(`SMS OTP (login) sent to ${user.mobile}: ${otp}`);
+
+  const payload = {
+    mobile: user.mobile,
+    expiresInMinutes: 10,
+    message: 'OTP sent to your registered mobile number',
+  };
+  if (env.nodeEnv !== 'production') {
+    payload.devOtp = otp;
+  }
+  return payload;
+};
+
+const verifyMobileOtp = async ({ mobile, otp }) => {
+  const digits = digitsOnly(mobile);
+  let user = await authRepository.findByMobileDigits(digits);
+  if (!user && isDevLoginMobile(digits)) {
+    user = await ensureDevLoginUser(digits);
+  }
+  if (!user) {
+    throw new ApiError(404, 'No account found for this mobile number. Please register.');
+  }
+
+  if (!user.is_active) {
+    if (isDevLoginMobile(digits)) {
+      user = await ensureDevLoginUser(digits);
+    } else {
+      throw new ApiError(
+        403,
+        'Your account is pending approval. Please wait for an administrator to approve your registration.'
+      );
+    }
+  }
+
+  const verification = await changeRepository.findActiveOtpVerification(user.user_id);
+  if (!verification) {
+    throw new ApiError(400, 'OTP expired or not found. Please request a new code.');
+  }
+
+  if (verification.mobile_otp !== String(otp)) {
+    throw new ApiError(400, 'Invalid OTP');
+  }
+
+  await changeRepository.markOtpVerified(verification.verification_id);
+  const tokens = signTokens(user.user_id);
+  const fullUser = await getUserWithRoles(user.user_id);
+  return { user: fullUser, ...tokens };
+};
+
+module.exports = {
+  register,
+  login,
+  adminLogin,
+  refresh,
+  me,
+  requestMobileOtp,
+  verifyMobileOtp,
+};

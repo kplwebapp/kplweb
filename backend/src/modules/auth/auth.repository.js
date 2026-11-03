@@ -5,6 +5,20 @@ const findByEmail = async (email) => {
   return rows[0] || null;
 };
 
+/** Match mobile numbers ignoring spaces/dashes; prefers exact digit match. */
+const findByMobileDigits = async (digits) => {
+  if (!digits) return null;
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM users
+     WHERE regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g') = $1
+     ORDER BY user_id ASC
+     LIMIT 1`,
+    [digits]
+  );
+  return rows[0] || null;
+};
+
 const findById = async (userId) => {
   const { rows } = await pool.query(
     `SELECT user_id, first_name, last_name, full_name, email, is_active, created_at
@@ -53,4 +67,22 @@ const assignRole = async (userId, roleCode) => {
   );
 };
 
-module.exports = { findByEmail, findById, createUser, createPlayer, assignRole };
+const setActive = async (userId, isActive) => {
+  const { rows } = await pool.query(
+    `UPDATE users SET is_active = $2, updated_at = CURRENT_TIMESTAMP
+     WHERE user_id = $1
+     RETURNING *`,
+    [userId, Boolean(isActive)]
+  );
+  return rows[0] || null;
+};
+
+module.exports = {
+  findByEmail,
+  findById,
+  findByMobileDigits,
+  createUser,
+  createPlayer,
+  assignRole,
+  setActive,
+};

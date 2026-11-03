@@ -40,7 +40,9 @@ export function categoryIcon(kind: ActivityKind, slug: string): string {
 
 export const teamsItem = { label: 'Teams', path: `${ADMIN_BASE}/teams`, icon: '👥' }
 export const auctionsItem = { label: 'Auctions', path: `${ADMIN_BASE}/auctions`, icon: '🔨' }
+export const liveAuctionItem = { label: 'Live auction', path: `${ADMIN_BASE}/auctions/live`, icon: '🔴' }
 export const auctionPath = (id: number) => `${ADMIN_BASE}/auctions/${id}`
+export const liveAuctionPath = `${ADMIN_BASE}/auctions/live`
 /** Roles that hold the auction permissions by default; the API still checks each action. */
 export const AUCTION_ROLES = ['SUPER_ADMIN', 'ADMIN']
 

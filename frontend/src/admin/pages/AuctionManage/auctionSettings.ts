@@ -34,8 +34,8 @@ export const EMPTY_SETTINGS: SettingsDraft = {
   budget_per_team: String(DEFAULT_POINTS_PER_TEAM),
   max_players_per_team: String(DEFAULT_MAX_PLAYERS_PER_TEAM),
   min_players_per_team: '11',
-  min_bid_increment: '500',
-  default_base_price: '1000',
+  min_bid_increment: '1',
+  default_base_price: '0',
 }
 
 /** Settings that can still change once bidding has started (matches the API). */

@@ -146,7 +146,13 @@ function BasePriceInput({ lot, disabled, onSave }: { lot: AuctionLot; disabled: 
 function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editable: boolean }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
-  const { lots, categories } = detail
+  const [busyLotId, setBusyLotId] = useState<number | null>(null)
+  const { lots, categories, auction, current, can } = detail
+  const canPutOnLive =
+    can.operate &&
+    !auction.is_legacy &&
+    (auction.status === 'LIVE' || auction.status === 'PAUSED') &&
+    !current
 
   const term = search.trim().toLowerCase()
   const visible = lots.filter((l) => {
@@ -159,6 +165,15 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
 
   const update = (lot: AuctionLot, body: Parameters<typeof auctionAdminApi.updateLot>[2], message: string) =>
     run(() => auctionAdminApi.updateLot(auctionId, lot.lot_id, body), message)
+
+  const putOnLive = async (lot: AuctionLot) => {
+    setBusyLotId(lot.lot_id)
+    await run(
+      () => auctionAdminApi.nextPlayer(auctionId, lot.lot_id),
+      `${lot.player_name} is now on the live auction screen.`,
+    )
+    setBusyLotId(null)
+  }
 
   /** Swaps the player with the neighbour shown above or below it. */
   const move = (lot: AuctionLot, delta: number) => {
@@ -231,12 +246,14 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                 <th>Base</th>
                 <th className="text-center">Eligible</th>
                 <th>Status</th>
-                {editable && <th />}
+                {(editable || canPutOnLive) && <th />}
               </tr>
             </thead>
             <tbody>
               {visible.map((lot) => {
                 const changeable = editable && CHANGEABLE.includes(lot.status)
+                const showPutOnLive =
+                  canPutOnLive && lot.is_eligible && (lot.status === 'PENDING' || lot.status === 'UNSOLD')
                 return (
                   <tr key={lot.lot_id}>
                     <td className="text-muted">{lot.lot_number}</td>
@@ -282,10 +299,24 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                       {lot.status === 'SOLD' && (
                         <div className="text-muted">{lot.team_name} · {formatPoints(lot.sold_price ?? 0)}</div>
                       )}
+                      {lot.status === 'ON_BLOCK' && (
+                        <div className="text-primary">On live screen</div>
+                      )}
                     </td>
-                    {editable && (
+                    {(editable || canPutOnLive) && (
                       <td className="text-end text-nowrap">
-                        {filter === 'all' && !term && (
+                        {showPutOnLive && (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            className="me-1"
+                            disabled={busyLotId === lot.lot_id}
+                            onClick={() => putOnLive(lot)}
+                          >
+                            Put on live
+                          </Button>
+                        )}
+                        {editable && filter === 'all' && !term && (
                           <>
                             <Button size="sm" variant="link" className="px-1" aria-label={`Move ${lot.player_name} earlier`}
                               onClick={() => move(lot, -1)}>↑</Button>
@@ -293,10 +324,10 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                               onClick={() => move(lot, 1)}>↓</Button>
                           </>
                         )}
-                        {CHANGEABLE.includes(lot.status) && (
+                        {editable && CHANGEABLE.includes(lot.status) && (
                           <Button size="sm" variant="link" className="px-1 text-danger" onClick={() => withdraw(lot)}>Remove</Button>
                         )}
-                        {lot.status === 'WITHDRAWN' && (
+                        {editable && lot.status === 'WITHDRAWN' && (
                           <Button size="sm" variant="link" className="px-1"
                             onClick={() => run(() => auctionAdminApi.restoreLot(auctionId, lot.lot_id), `${lot.player_name} restored.`)}>
                             Restore

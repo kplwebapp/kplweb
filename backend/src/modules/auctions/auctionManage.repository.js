@@ -41,6 +41,8 @@ const repo = {
               a.season_id, s.season_name, s.season_year, a.event_id, e.title AS event_title,
               COUNT(l.lot_id) FILTER (WHERE l.status <> 'WITHDRAWN')::int AS pool_size,
               COUNT(l.lot_id) FILTER (WHERE l.status = 'SOLD')::int AS sold,
+              COUNT(l.lot_id) FILTER (WHERE l.status = 'PENDING' AND l.is_eligible)::int AS waiting,
+              COUNT(l.lot_id) FILTER (WHERE l.status = 'ON_BLOCK')::int AS on_block,
               (SELECT COUNT(*)::int FROM auction_teams at WHERE at.auction_id = a.auction_id) AS teams
        FROM auctions a
        JOIN seasons s ON s.season_id = a.season_id
@@ -50,6 +52,20 @@ const repo = {
        ORDER BY (a.status IN ('LIVE', 'PAUSED')) DESC, a.is_legacy, a.auction_date DESC NULLS LAST, a.auction_id DESC`
     );
     return rows;
+  },
+
+  /** At most one auction should be LIVE or PAUSED system-wide. */
+  findLiveAuction: async (excludeAuctionId = null, db = pool) => {
+    const { rows } = await db.query(
+      `SELECT auction_id, title, status
+       FROM auctions
+       WHERE status IN ('LIVE', 'PAUSED')
+         AND ($1::int IS NULL OR auction_id <> $1)
+       ORDER BY (status = 'LIVE') DESC, auction_id
+       LIMIT 1`,
+      [excludeAuctionId]
+    );
+    return rows[0] || null;
   },
 
   listPublicAuctions: async (db = pool) => {

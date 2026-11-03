@@ -102,9 +102,32 @@
     }
   }
 
+  &__board-row {
+    align-items: stretch;
+  }
+
+  &__players-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  &__players-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   &__player-table {
-    max-height: 28rem;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
+  }
+
+  &__stage {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   &__row--active {
@@ -119,27 +142,56 @@
     object-fit: cover;
   }
 
+  &__bid-hero {
+    padding: 0.75rem 0.5rem;
+    border-radius: 0.75rem;
+    background: rgba(var(--bs-primary-rgb), 0.08);
+  }
+
+  &__bid-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+  }
+
+  &__bid-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--bs-primary);
+  }
+
+  &__recent-bids {
+    border-top: 1px solid var(--bs-border-color);
+    padding-top: 0.75rem;
+  }
+
   &__details {
     display: grid;
-    gap: 0.55rem;
+    gap: 1rem;
 
     > div {
-      display: grid;
-      grid-template-columns: minmax(8rem, 40%) 1fr;
-      gap: 0.5rem;
-      align-items: baseline;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
     }
 
     dt {
       margin: 0;
       color: var(--bs-secondary-color);
       font-weight: 500;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     dd {
       margin: 0;
       font-weight: 600;
+      font-size: 1.05rem;
+      line-height: 1.35;
     }
   }
 

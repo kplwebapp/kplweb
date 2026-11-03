@@ -6,12 +6,14 @@ import { faCalendarDays, faCompress, faExpand, faLocationDot } from '@fortawesom
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import PageShell from '@/components/common/PageShell'
 import { auctionContent } from '@/content'
+import EmptyState from '@/components/tournament/EmptyState'
 import TeamBadge from '@/components/tournament/TeamBadge'
 import { useAuctionLive } from '@/hooks/useAuctionLive'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import {
   auctionPublicApi,
   type AuctionSnapshot,
+  type LiveBid,
   type PublicAuctionSummary,
   type PublicLot,
   type PublicTeam,
@@ -195,10 +197,177 @@ type BoardProps = {
   onToggleFullscreen: () => void
 }
 
+type LiveAuctionInfo = {
+  highest: { amount: number; team_id: number; team_name: string } | null
+  next_min_bid: number
+  points_spent: number | null
+  bids: LiveBid[]
+}
+
+function PlayerDetailPanel({
+  player,
+  title,
+  live,
+}: {
+  player: PublicLot
+  title?: string
+  live?: LiveAuctionInfo | null
+}) {
+  const pointsValue =
+    live?.points_spent != null
+      ? live.points_spent
+      : player.points_spent != null
+        ? player.points_spent
+        : player.sold_price
+
+  return (
+    <>
+      <Card.Header className="bg-transparent">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <h2 className="h4 mb-0">{player.player_name}</h2>
+          {title ? <Badge bg={live ? 'success' : 'info'}>{title}</Badge> : null}
+        </div>
+      </Card.Header>
+      <Card.Body>
+        <Row className="g-3 align-items-start">
+          <Col sm={9}>
+            {live ? (
+              <div className="auction-live__bid-hero mb-3">
+                <div className="auction-live__bid-label">
+                  {live.highest ? 'Current bid' : 'Opening bid'}
+                </div>
+                <div className="auction-live__bid-value">
+                  {formatPoints(live.highest ? live.highest.amount : pointsValue ?? 0)}
+                </div>
+                {live.highest ? (
+                  <div className="small mt-1">
+                    Leading: <strong>{live.highest.team_name}</strong>
+                    <span className="text-muted"> · Next min {formatPoints(live.next_min_bid)}</span>
+                  </div>
+                ) : (
+                  <div className="small text-muted mt-1">
+                    Waiting for the first bid · Min {formatPoints(live.next_min_bid)}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            <Row className="g-3">
+              <Col xs={12} md={6}>
+                <dl className="auction-live__details mb-0">
+                  <div>
+                    <dt>Vibhaag</dt>
+                    <dd>{player.vibhaag || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Birthdate</dt>
+                    <dd>{formatBirthDate(player.date_of_birth)}</dd>
+                  </div>
+                  <div>
+                    <dt>Batting style</dt>
+                    <dd>{player.batting_style || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Bowling style</dt>
+                    <dd>{player.bowling_style || '—'}</dd>
+                  </div>
+                </dl>
+              </Col>
+              <Col xs={12} md={6}>
+                <dl className="auction-live__details mb-0">
+                  <div>
+                    <dt>Is wicketkeeper?</dt>
+                    <dd>{yesNo(player.is_wicketkeeper)}</dd>
+                  </div>
+                  {live ? (
+                    player.category ? (
+                      <div>
+                        <dt>Category</dt>
+                        <dd>{player.category}</dd>
+                      </div>
+                    ) : null
+                  ) : (
+                    <div>
+                      <dt>No. of points spent</dt>
+                      <dd>{pointsValue != null ? formatPoints(pointsValue) : '—'}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Status</dt>
+                    <dd>
+                      <Badge bg={lotBadge(player)} text={player.status === 'PENDING' ? 'dark' : undefined}>
+                        {player.status_label}
+                      </Badge>
+                      {player.status === 'SOLD' && player.team_name ? (
+                        <span className="ms-2 small text-muted">to {player.team_name}</span>
+                      ) : null}
+                    </dd>
+                  </div>
+                  {!live && player.category ? (
+                    <div>
+                      <dt>Category</dt>
+                      <dd>{player.category}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </Col>
+            </Row>
+            {live && live.bids.length > 0 ? (
+              <div className="auction-live__recent-bids mt-3">
+                <div className="fw-semibold mb-2">Recent bids</div>
+                <Table size="sm" responsive className="mb-0 align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Team</th>
+                      <th className="text-end">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {live.bids.slice(0, 8).map((bid, index) => (
+                      <tr key={`${bid.team_id}-${bid.amount}-${bid.placed_at}-${index}`}>
+                        <td>{bid.team_name}</td>
+                        <td className="text-end fw-semibold">{formatPoints(bid.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            ) : null}
+          </Col>
+          <Col sm={3} className="text-center">
+            <img
+              src={getProfilePhotoUrl(player.profile_photo)}
+              onError={handleProfilePhotoError}
+              alt={player.player_name}
+              className="auction-live__photo"
+            />
+          </Col>
+        </Row>
+      </Card.Body>
+    </>
+  )
+}
+
 function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
-  const { auction, teams, next, featured, pool } = snapshot
+  const { auction, teams, pool } = snapshot
   const listedPlayers = pool ?? snapshot.lots.filter((l) => l.status !== 'SOLD')
-  const featuredPlayer = featured ?? snapshot.current
+  // Prefer the SSE/API current lot; fall back to any ON_BLOCK row if the snapshot is briefly out of sync.
+  const liveCurrent =
+    snapshot.current ??
+    snapshot.lots.find((l) => l.status === 'ON_BLOCK') ??
+    null
+  const liveInfo: LiveAuctionInfo | null =
+    snapshot.current && liveCurrent && snapshot.current.lot_id === liveCurrent.lot_id
+      ? {
+          highest: snapshot.current.highest,
+          next_min_bid: snapshot.current.next_min_bid,
+          points_spent: snapshot.current.points_spent,
+          bids: snapshot.current.bids ?? [],
+        }
+      : null
+  // Live section shows only the one player currently on the block.
+  const livePlayer = liveCurrent
+  const liveTitle = liveCurrent ? 'Live auction' : undefined
+  const activeLotId = liveCurrent?.lot_id ?? null
   const dateLabel = formatAuctionDate(auction.auction_date)
 
   return (
@@ -236,29 +405,11 @@ function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
         <div className="auction-live__paused mb-3">The auction is paused</div>
       )}
 
-      <section className="mb-4">
-        <h2 className="h5 mb-3">Teams</h2>
-        <Row xs={1} md={2} lg={3} className="g-3">
-          {teams.map((team) => (
-            <Col key={team.team_id}>
-              <TeamCard team={team} />
-            </Col>
-          ))}
-          {teams.length === 0 && (
-            <Col>
-              <Card className="border-0 shadow-sm">
-                <Card.Body className="text-muted text-center py-4">No teams in this auction yet.</Card.Body>
-              </Card>
-            </Col>
-          )}
-        </Row>
-      </section>
-
-      <Row className="g-3 mb-3">
-        <Col lg={5}>
-          <Card className="border-0 shadow-sm h-100 auction-live__card">
+      <Row className="g-3 mb-4 auction-live__board-row">
+        <Col lg={5} className="d-flex">
+          <Card className="border-0 shadow-sm auction-live__card auction-live__players-col w-100">
             <Card.Header className="bg-transparent fw-semibold">Registered players</Card.Header>
-            <Card.Body className="p-0">
+            <Card.Body className="p-0 auction-live__players-body">
               <div className="auction-live__player-table">
                 <Table responsive hover className="mb-0 align-middle">
                   <thead className="table-light">
@@ -278,7 +429,7 @@ function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
                       listedPlayers.map((lot) => (
                         <tr
                           key={lot.lot_id}
-                          className={featuredPlayer?.lot_id === lot.lot_id ? 'auction-live__row--active' : undefined}
+                          className={activeLotId === lot.lot_id ? 'auction-live__row--active' : undefined}
                         >
                           <td>{lot.lot_number}</td>
                           <td className="fw-semibold">{lot.player_name}</td>
@@ -301,77 +452,41 @@ function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
           </Card>
         </Col>
 
-        <Col lg={7}>
+        <Col lg={7} className="d-flex">
           <Card
-            key={featuredPlayer ? `lot-${featuredPlayer.lot_id}-${featuredPlayer.status}` : 'waiting'}
-            className="border-0 shadow-sm h-100 auction-live__card"
+            key={livePlayer ? `live-${livePlayer.lot_id}-${livePlayer.status}` : 'live-empty'}
+            className="border-0 shadow-sm auction-live__card auction-live__spotlight auction-live__stage w-100"
           >
-            {featuredPlayer ? (
-              <>
-                <Card.Header className="bg-transparent">
-                  <h2 className="h4 mb-0">{featuredPlayer.player_name}</h2>
-                </Card.Header>
-                <Card.Body>
-                  <Row className="g-3 align-items-start">
-                    <Col sm={4} className="text-center">
-                      <img
-                        src={getProfilePhotoUrl(featuredPlayer.profile_photo)}
-                        onError={handleProfilePhotoError}
-                        alt={featuredPlayer.player_name}
-                        className="auction-live__photo"
-                      />
-                    </Col>
-                    <Col sm={8}>
-                      <dl className="auction-live__details mb-0">
-                        <div><dt>Vibhaag</dt><dd>{featuredPlayer.vibhaag || '—'}</dd></div>
-                        <div><dt>Birthdate</dt><dd>{formatBirthDate(featuredPlayer.date_of_birth)}</dd></div>
-                        <div><dt>Batting style</dt><dd>{featuredPlayer.batting_style || '—'}</dd></div>
-                        <div><dt>Bowling style</dt><dd>{featuredPlayer.bowling_style || '—'}</dd></div>
-                        <div><dt>Is wicketkeeper?</dt><dd>{yesNo(featuredPlayer.is_wicketkeeper)}</dd></div>
-                        <div>
-                          <dt>No. of points spent</dt>
-                          <dd>
-                            {featuredPlayer.points_spent != null
-                              ? formatPoints(featuredPlayer.points_spent)
-                              : '—'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Status</dt>
-                          <dd>
-                            <Badge
-                              bg={lotBadge(featuredPlayer)}
-                              text={featuredPlayer.status === 'PENDING' ? 'dark' : undefined}
-                            >
-                              {featuredPlayer.status_label}
-                            </Badge>
-                            {featuredPlayer.status === 'SOLD' && featuredPlayer.team_name && (
-                              <span className="ms-2 small text-muted">to {featuredPlayer.team_name}</span>
-                            )}
-                          </dd>
-                        </div>
-                      </dl>
-                    </Col>
-                  </Row>
-                </Card.Body>
-              </>
+            {livePlayer ? (
+              <PlayerDetailPanel player={livePlayer} title={liveTitle} live={liveInfo} />
             ) : (
-              <Card.Body className="text-center text-muted py-5">
-                Waiting for the next player to come up for selection…
+              <Card.Body className="py-4 d-flex align-items-center justify-content-center">
+                <EmptyState art="auction" title="Waiting for the next player" compact>
+                  When the auctioneer puts a player on the block, their details appear here.
+                </EmptyState>
               </Card.Body>
             )}
           </Card>
         </Col>
       </Row>
 
-      <Card className="border-0 shadow-sm auction-live__next">
-        <Card.Body className="d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
-          <span className="text-muted">Next player</span>
-          <strong className="fs-5 mb-0">
-            {next ? `${next.player_name}` : 'No more players waiting'}
-          </strong>
-        </Card.Body>
-      </Card>
+      <section className="mb-2">
+        <h2 className="h5 mb-3">Teams</h2>
+        <Row xs={1} md={2} lg={3} className="g-3">
+          {teams.map((team) => (
+            <Col key={team.team_id}>
+              <TeamCard team={team} />
+            </Col>
+          ))}
+          {teams.length === 0 && (
+            <Col>
+              <Card className="border-0 shadow-sm">
+                <Card.Body className="text-muted text-center py-4">No teams in this auction yet.</Card.Body>
+              </Card>
+            </Col>
+          )}
+        </Row>
+      </section>
     </>
   )
 }

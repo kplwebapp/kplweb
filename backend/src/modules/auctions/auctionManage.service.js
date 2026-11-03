@@ -5,6 +5,7 @@ const snapshot = require('./auctionSnapshot');
 const stream = require('./auctionStream');
 const { toPublicPath, removeUploadedFile } = require('../../utils/uploadFiles');
 const { LIFECYCLE, SETUP_STATUSES, OPEN_STATUSES } = require('./auction.constants');
+const { categoryMode, squadRoundState, STANDARD_CATEGORIES, normalizeCategoryName } = require('./auctionLiveRules');
 
 const CRICKET_SLUG = 'cricket';
 
@@ -23,11 +24,20 @@ async function mutate(auctionId, actorId, fn) {
     const { rows } = await client.query('SELECT * FROM auctions WHERE auction_id = $1 FOR UPDATE', [auctionId]);
     const auction = rows[0];
     if (!auction) throw new ApiError(404, 'Auction not found');
+    // Pre-migration auctions were flagged is_legacy. If this one already uses a modern
+    // lifecycle status, clear the flag so live bidding can continue.
     if (auction.is_legacy) {
-      throw new ApiError(
-        409,
-        'This auction is kept as history from before the auction system and cannot be changed. Create a new auction to run live bidding.'
-      );
+      if (OPEN_STATUSES.includes(auction.status)) {
+        await client.query('UPDATE auctions SET is_legacy = FALSE, updated_at = CURRENT_TIMESTAMP WHERE auction_id = $1', [
+          auctionId,
+        ]);
+        auction.is_legacy = false;
+      } else {
+        throw new ApiError(
+          409,
+          'This auction is kept as history from before the auction system and cannot be changed. Use “Enable live bidding” on this auction, or create a new auction.'
+        );
+      }
     }
 
     const events = [];
@@ -147,6 +157,146 @@ const currentBid = async (client, lot) => {
   return rows[0] ?? null;
 };
 
+const loadSquadRound = async (client, auctionId, categoryId, teamCount) => {
+  const { rows: sold } = await client.query(
+    `SELECT lot_id, team_id FROM auction_lots
+     WHERE auction_id = $1 AND auction_category_id = $2 AND status = 'SOLD'
+     ORDER BY sold_at ASC NULLS LAST, lot_id ASC`,
+    [auctionId, categoryId]
+  );
+  const { rows: pendingRows } = await client.query(
+    `SELECT COUNT(*)::int AS n FROM auction_lots
+     WHERE auction_id = $1 AND auction_category_id = $2 AND is_eligible
+       AND status IN ('PENDING', 'ON_BLOCK', 'UNSOLD')`,
+    [auctionId, categoryId]
+  );
+  return squadRoundState({
+    soldOrdered: sold,
+    teamCount,
+    pendingCount: pendingRows[0]?.n ?? 0,
+  });
+};
+
+/** Match an auction category row to a standard live-desk label. */
+const matchStandardCategory = (name) => {
+  const n = normalizeCategoryName(name);
+  return (
+    STANDARD_CATEGORIES.find((label) => {
+      const s = normalizeCategoryName(label);
+      if (s.includes('icon')) return n.includes('icon');
+      if (s.includes('allrounder')) return n.includes('allrounder');
+      if (s.includes('batsman')) return n.includes('batsman');
+      if (s.includes('bowler')) return n.includes('bowler');
+      if (s.includes('other')) return n.includes('other');
+      return false;
+    }) ?? null
+  );
+};
+
+const toLivePlayer = (l) => ({
+  lot_id: l.lot_id,
+  lot_number: l.lot_number,
+  player_name: l.player_name,
+  status: l.status,
+  vibhaag: l.vibhaag,
+  profile_photo: l.profile_photo,
+  base_price: l.base_price,
+  team_name: l.team_name,
+  sold_price: l.sold_price,
+});
+
+/** Admin live desk payload: categories, round locks, and per-team bid eligibility for the current player. */
+const buildLiveBoard = (lots, categories, teams, current) => {
+  const byCategoryId = new Map(categories.map((c) => [c.auction_category_id, []]));
+  for (const lot of lots) {
+    if (lot.status === 'WITHDRAWN' || !lot.is_eligible) continue;
+    if (lot.auction_category_id && byCategoryId.has(lot.auction_category_id)) {
+      byCategoryId.get(lot.auction_category_id).push(lot);
+    }
+  }
+
+  // Always show the five standard categories, even when empty / not yet created on the auction.
+  const usedIds = new Set();
+  const categoryBoards = STANDARD_CATEGORIES.map((label) => {
+    const matched = categories.find((c) => matchStandardCategory(c.name) === label && !usedIds.has(c.auction_category_id));
+    if (matched) usedIds.add(matched.auction_category_id);
+    const mode = categoryMode(label);
+    const players = matched ? byCategoryId.get(matched.auction_category_id) ?? [] : [];
+    const pending = players.filter((l) => ['PENDING', 'ON_BLOCK', 'UNSOLD'].includes(l.status));
+    const remaining = pending.filter((l) => l.status === 'PENDING' || l.status === 'UNSOLD').length;
+    const sold = players
+      .filter((l) => l.status === 'SOLD')
+      .sort((a, b) => String(a.sold_at).localeCompare(String(b.sold_at)) || a.lot_id - b.lot_id);
+    let round = null;
+    if (mode === 'squad_round') {
+      round = squadRoundState({
+        soldOrdered: sold,
+        teamCount: teams.length,
+        pendingCount: pending.length,
+      });
+    }
+    return {
+      auction_category_id: matched?.auction_category_id ?? null,
+      name: label,
+      mode,
+      players: players.map(toLivePlayer),
+      waiting: remaining,
+      remaining,
+      on_block: pending.some((l) => l.status === 'ON_BLOCK'),
+      round,
+    };
+  });
+
+  let lockedTeamIds = new Set();
+  let currentMode = 'open';
+  if (current?.auction_category_id) {
+    const category = categories.find((c) => c.auction_category_id === current.auction_category_id);
+    currentMode = categoryMode(category?.name);
+    if (currentMode === 'squad_round') {
+      const sold = lots
+        .filter((l) => l.auction_category_id === current.auction_category_id && l.status === 'SOLD')
+        .sort((a, b) => String(a.sold_at || '').localeCompare(String(b.sold_at || '')) || a.lot_id - b.lot_id);
+      const pendingCount = lots.filter(
+        (l) =>
+          l.auction_category_id === current.auction_category_id &&
+          l.is_eligible &&
+          ['PENDING', 'ON_BLOCK', 'UNSOLD'].includes(l.status)
+      ).length;
+      const round = squadRoundState({ soldOrdered: sold, teamCount: teams.length, pendingCount });
+      lockedTeamIds = new Set(round.locked_team_ids);
+    }
+  }
+
+  const teamBids = new Map();
+  if (current?.bids) {
+    for (const b of current.bids) teamBids.set(b.team_id, b);
+  }
+
+  const teamCards = teams.map((t) => {
+    let bid_blocked_reason = '';
+    if (!current) bid_blocked_reason = 'No player on the block';
+    else if (t.slots_left <= 0) bid_blocked_reason = `Squad full (${t.max_players} players)`;
+    else if (lockedTeamIds.has(t.team_id)) bid_blocked_reason = 'Already bought in this round';
+    else if (currentMode === 'icon') bid_blocked_reason = 'Icon players are assigned, not bid';
+    else if (teamBids.has(t.team_id)) bid_blocked_reason = 'Already bid on this player';
+
+    return {
+      ...t,
+      bid_blocked_reason,
+      already_bid: teamBids.has(t.team_id),
+      bid_amount: teamBids.get(t.team_id)?.amount ?? null,
+      can_bid: Boolean(current) && currentMode !== 'icon' && !bid_blocked_reason,
+      can_assign: Boolean(current) && currentMode === 'icon' && t.slots_left > 0 && !lockedTeamIds.has(t.team_id),
+    };
+  });
+
+  return {
+    categories: categoryBoards,
+    current_mode: current ? currentMode : null,
+    teams: teamCards,
+  };
+};
+
 /** The lot that is under the hammer; `lotId` from the client must match it (guards stale screens). */
 const lockCurrentLot = async (client, auction, lotId) => {
   if (!auction.current_lot_id) throw new ApiError(409, 'No player is up for bidding.');
@@ -199,9 +349,9 @@ const service = {
 
       const { rows } = await client.query(
         `INSERT INTO auctions (season_id, event_id, title, description, rules, auction_date, venue, status,
-                               budget_per_team, max_players_per_team, min_players_per_team, min_bid_increment,
+                               is_legacy, budget_per_team, max_players_per_team, min_players_per_team, min_bid_increment,
                                default_base_price, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, $9, $10, $11, $12, $13, $13)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', FALSE, $8, $9, $10, $11, $12, $13, $13)
          RETURNING auction_id`,
         [seasonId, body.event_id ?? null, body.title, body.description ?? null, body.rules ?? null,
           body.auction_date ?? null, body.venue ?? null, body.budget_per_team, body.max_players_per_team,
@@ -501,6 +651,62 @@ const service = {
     });
   },
 
+  /**
+   * Turns a read-only legacy (pre-system) auction into a normal auction so it can be set up
+   * and run with live bidding. UPCOMING / completed / cancelled legacy records open as DRAFT.
+   */
+  async enableLiveBidding(auctionId, actorId) {
+    const client = await pool.connect();
+    let committed = false;
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query('SELECT * FROM auctions WHERE auction_id = $1 FOR UPDATE', [auctionId]);
+      const auction = rows[0];
+      if (!auction) throw new ApiError(404, 'Auction not found');
+      if (!auction.is_legacy) {
+        await client.query('COMMIT');
+        return { auction_id: auctionId, status: auction.status, is_legacy: false };
+      }
+
+      const status = OPEN_STATUSES.includes(auction.status) ? auction.status : 'DRAFT';
+      const { rows: ver } = await client.query(
+        `UPDATE auctions
+         SET is_legacy = FALSE,
+             status = $2,
+             version = version + 1,
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by = $3,
+             cancel_reason = CASE WHEN $2 = 'DRAFT' THEN NULL ELSE cancel_reason END,
+             cancelled_at = CASE WHEN $2 = 'DRAFT' THEN NULL ELSE cancelled_at END
+         WHERE auction_id = $1
+         RETURNING version`,
+        [auctionId, status, actorId]
+      );
+      await client.query(
+        `INSERT INTO auction_events (auction_id, seq, event_type, details, actor_user_id)
+         VALUES ($1, $2, 'STATUS_CHANGED', $3, $4)`,
+        [
+          auctionId,
+          Number(ver[0].version),
+          { action: 'enable_live_bidding', from: auction.status, to: status, was_legacy: true },
+          actorId,
+        ]
+      );
+      await client.query('COMMIT');
+      committed = true;
+      return { auction_id: auctionId, status, is_legacy: false };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+      if (committed) {
+        snapshot.invalidate(auctionId);
+        stream.publish(auctionId);
+      }
+    }
+  },
+
   // ---------------- Lifecycle ----------------
 
   transition(auctionId, action, { reason } = {}, actorId) {
@@ -525,6 +731,16 @@ const service = {
         const categories = await repo.findCategories(auctionId, client);
         if (categories.length && rows[0].uncategorised > 0) {
           throw new ApiError(409, `${rows[0].uncategorised} eligible player(s) have no category yet.`);
+        }
+      }
+
+      if (action === 'start') {
+        const other = await repo.findLiveAuction(auctionId, client);
+        if (other) {
+          throw new ApiError(
+            409,
+            `Only one auction can be live at a time. "${other.title}" is already ${other.status.toLowerCase()}. Complete or cancel it first.`
+          );
         }
       }
 
@@ -566,10 +782,10 @@ const service = {
 
   // ---------------- Live bidding ----------------
 
-  /** Puts a player up for bidding: the next waiting one, or a chosen waiting or unsold one. */
+  /** Puts a player up for bidding (and on the public live screen): next waiting, or a chosen waiting/unsold one. */
   nextPlayer(auctionId, lotId, actorId) {
     return mutate(auctionId, actorId, async ({ client, auction, log }) => {
-      assertStatus(auction, ['LIVE'], 'Bringing up a player');
+      assertStatus(auction, ['LIVE', 'PAUSED'], 'Bringing up a player');
       if (auction.current_lot_id) throw new ApiError(409, 'Mark the current player sold or unsold first.');
 
       let lot;
@@ -604,10 +820,40 @@ const service = {
     return mutate(auctionId, actorId, async ({ client, auction, log }) => {
       assertStatus(auction, ['LIVE'], 'Bidding');
       const lot = await lockCurrentLot(client, auction, lotId);
+      const categories = await repo.findCategories(auctionId, client);
+      const category = categories.find((c) => c.auction_category_id === lot.auction_category_id);
+      const mode = categoryMode(category?.name);
+      if (mode === 'icon') {
+        throw new ApiError(409, 'Icon players are assigned without bidding. Use Assign to team.');
+      }
+
+      const teams = await repo.findTeams(auctionId, client);
+      if (mode === 'squad_round' && category) {
+        const roundInfo = await loadSquadRound(client, auctionId, category.auction_category_id, teams.length);
+        if (roundInfo.locked_team_ids.includes(teamId)) {
+          throw new ApiError(
+            409,
+            'This team already acquired a player in the current category round and cannot bid again until the next round.'
+          );
+        }
+      }
+
+      const { rows: prior } = await client.query(
+        `SELECT bid_id, amount FROM auction_bids
+         WHERE lot_id = $1 AND bid_round = $2 AND team_id = $3
+         ORDER BY amount DESC LIMIT 1`,
+        [lot.lot_id, lot.bid_round, teamId]
+      );
+      if (prior[0]) {
+        throw new ApiError(409, 'This team has already submitted a bid for this player in the current round.');
+      }
+
       const highest = await currentBid(client, lot);
-      const minimum = highest ? highest.amount + auction.min_bid_increment : lot.base_price;
-      if (amount < minimum) throw new ApiError(400, `The bid must be at least ${minimum} points.`);
-      if (highest && highest.team_id === teamId) throw new ApiError(400, 'This team already has the highest bid.');
+      // Opening bid may be 0; later bids must beat the current highest.
+      const minimum = highest ? highest.amount + 1 : 0;
+      if (amount < minimum) {
+        throw new ApiError(400, highest ? `The bid must be more than ${highest.amount} points.` : 'The bid cannot be negative.');
+      }
       await assertCanBuy(client, auctionId, teamId, lot, amount);
 
       const { rows } = await client.query(
@@ -619,8 +865,73 @@ const service = {
         'UPDATE auction_lots SET current_bid_id = $2, updated_at = CURRENT_TIMESTAMP WHERE lot_id = $1',
         [lot.lot_id, rows[0].bid_id]
       );
-      log('BID_PLACED', { lot_id: lot.lot_id, team_id: teamId, bid_id: rows[0].bid_id, amount, details: { round: lot.bid_round } });
+      log('BID_PLACED', {
+        lot_id: lot.lot_id,
+        team_id: teamId,
+        bid_id: rows[0].bid_id,
+        amount,
+        details: { round: lot.bid_round, category_mode: mode },
+      });
       return rows[0];
+    });
+  },
+
+  /**
+   * Assigns a player to a team without bidding (Icon / paper cheat), or at a fixed amount.
+   * Puts the lot on block briefly then marks sold so the public screen updates.
+   */
+  assignPlayer(auctionId, { lot_id: lotId, team_id: teamId, amount = 0 }, actorId) {
+    return mutate(auctionId, actorId, async ({ client, auction, log }) => {
+      assertStatus(auction, ['LIVE', 'PAUSED'], 'Assigning a player');
+      if (auction.current_lot_id && auction.current_lot_id !== lotId) {
+        throw new ApiError(409, 'Mark the current player sold or unsold first.');
+      }
+      const lot = await lockLot(client, auctionId, lotId);
+      if (!lot.is_eligible) throw new ApiError(409, 'This player is marked ineligible.');
+      if (!['PENDING', 'UNSOLD', 'ON_BLOCK'].includes(lot.status)) {
+        throw new ApiError(409, 'This player cannot be assigned now.');
+      }
+      const categories = await repo.findCategories(auctionId, client);
+      const category = categories.find((c) => c.auction_category_id === lot.auction_category_id);
+      const mode = categoryMode(category?.name);
+      if (mode !== 'icon' && lot.status !== 'ON_BLOCK') {
+        throw new ApiError(409, 'Only Icon players can be assigned without opening bidding.');
+      }
+      if (amount < 0) throw new ApiError(400, 'Points cannot be negative.');
+      await assertCanBuy(client, auctionId, teamId, lot, amount);
+
+      if (lot.status !== 'ON_BLOCK') {
+        const round = lot.status === 'UNSOLD' ? lot.bid_round + 1 : lot.bid_round;
+        await client.query(
+          `UPDATE auction_lots SET status = 'ON_BLOCK', bid_round = $2, current_bid_id = NULL, updated_at = CURRENT_TIMESTAMP
+           WHERE lot_id = $1`,
+          [lot.lot_id, round]
+        );
+        await client.query('UPDATE auctions SET current_lot_id = $2 WHERE auction_id = $1', [auctionId, lot.lot_id]);
+        lot.bid_round = round;
+        log('PLAYER_UP', { lot_id: lot.lot_id, amount, details: { assign: true, previous_status: lot.status } });
+      }
+
+      const { rows: bidRows } = await client.query(
+        `INSERT INTO auction_bids (auction_id, lot_id, bid_round, team_id, amount, placed_by)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING bid_id`,
+        [auctionId, lot.lot_id, lot.bid_round, teamId, amount, actorId]
+      );
+      await client.query(
+        `UPDATE auction_lots SET status = 'SOLD', team_id = $2, sold_price = $3, sold_bid_id = $4, current_bid_id = $4,
+           sold_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+         WHERE lot_id = $1`,
+        [lot.lot_id, teamId, amount, bidRows[0].bid_id]
+      );
+      await client.query('UPDATE auctions SET current_lot_id = NULL WHERE auction_id = $1', [auctionId]);
+      log('PLAYER_SOLD', {
+        lot_id: lot.lot_id,
+        team_id: teamId,
+        bid_id: bidRows[0].bid_id,
+        amount,
+        details: { assigned: true, category_mode: mode },
+      });
+      return repo.findLot(auctionId, lot.lot_id, client);
     });
   },
 
@@ -700,19 +1011,46 @@ const service = {
 
   // ---------------- Reads ----------------
 
-  list: () => repo.listAuctions(),
+  async list() {
+    // Clear incorrect legacy flags on any modern-status auctions before listing.
+    await pool.query(
+      `UPDATE auctions SET is_legacy = FALSE, updated_at = CURRENT_TIMESTAMP
+       WHERE is_legacy AND status = ANY($1::text[])`,
+      [OPEN_STATUSES]
+    );
+    const auctions = await repo.listAuctions();
+    const live = auctions.find((a) => a.status === 'LIVE' || a.status === 'PAUSED') ?? null;
+    return { auctions, live };
+  },
 
   async detail(auctionId) {
-    const auction = await repo.findAuction(auctionId);
+    let auction = await repo.findAuction(auctionId);
     if (!auction) throw new ApiError(404, 'Auction not found');
-    const [categories, teams, lots, registrations] = await Promise.all([
+    // Heal auctions that were bulk-flagged legacy but already use the modern lifecycle.
+    if (auction.is_legacy && OPEN_STATUSES.includes(auction.status)) {
+      await pool.query(
+        'UPDATE auctions SET is_legacy = FALSE, updated_at = CURRENT_TIMESTAMP WHERE auction_id = $1',
+        [auctionId]
+      );
+      auction = { ...auction, is_legacy: false };
+    }
+    const [categories, teams, lots, registrations, blockingLive] = await Promise.all([
       repo.findCategories(auctionId),
       auction.is_legacy ? repo.findLegacyTeams(auctionId) : repo.findTeams(auctionId),
       repo.findLots(auctionId),
       repo.countRegistrations(auction.event_id),
+      repo.findLiveAuction(auctionId),
     ]);
-    const current = lots.find((l) => l.lot_id === auction.current_lot_id) ?? null;
+    const current =
+      lots.find((l) => l.lot_id === auction.current_lot_id && l.status === 'ON_BLOCK') ??
+      lots.find((l) => l.status === 'ON_BLOCK') ??
+      null;
     const currentBids = current ? await repo.findRoundBids(current.lot_id, current.bid_round) : [];
+    const currentView = current && {
+      ...current,
+      bids: currentBids,
+      next_min_bid: currentBids[0] ? currentBids[0].amount + 1 : 0,
+    };
     const inPool = lots.filter((l) => l.status !== 'WITHDRAWN');
     const eligible = inPool.filter((l) => l.is_eligible);
     const sold = inPool.filter((l) => l.status === 'SOLD');
@@ -723,7 +1061,9 @@ const service = {
       categories,
       teams,
       lots,
-      current: current && { ...current, bids: currentBids, next_min_bid: currentBids[0] ? currentBids[0].amount + auction.min_bid_increment : current.base_price },
+      current: currentView,
+      live_board: buildLiveBoard(lots, categories, teams, currentView),
+      blocking_live: blockingLive,
       stats: {
         registered: registrations,
         pool: inPool.length,

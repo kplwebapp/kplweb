@@ -49,6 +49,15 @@ export const matchesApi = {
   getLiveScore: (matchId: number) => apiClient.get(`/scoring/live/${matchId}`),
 };
 
+export type PublicTeam = {
+  team_id: number;
+  team_name: string;
+  team_code: string | null;
+  short_name: string | null;
+  team_logo?: string | null;
+  is_active: boolean;
+};
+
 export const teamsApi = {
-  list: () => apiClient.get('/teams'),
+  list: () => apiClient.get<ApiEnvelope<PublicTeam[]>>('/teams'),
 };

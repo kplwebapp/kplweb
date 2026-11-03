@@ -79,6 +79,12 @@ const bidSchema = Joi.object({
   amount: points.required(),
 });
 
+const assignPlayerSchema = Joi.object({
+  lot_id: id.required(),
+  team_id: id.required(),
+  amount: points.default(0),
+});
+
 module.exports = {
   createAuctionSchema,
   updateAuctionSchema,
@@ -93,4 +99,5 @@ module.exports = {
   lotRefWithReasonSchema,
   nextPlayerSchema,
   bidSchema,
+  assignPlayerSchema,
 };

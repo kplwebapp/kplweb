@@ -51,6 +51,7 @@ router.post('/manage/:auctionId/players/:lotId/restore', ...manage, c.restoreLot
 router.put('/manage/:auctionId/order', ...manage, validate(v.reorderSchema), c.reorder);
 
 // Lifecycle: setup steps and cancelling need manage; running the auction needs operate.
+router.post('/manage/:auctionId/enable-live-bidding', ...manage, c.enableLiveBidding);
 router.post('/manage/:auctionId/status/ready', ...manage, c.transition('ready'));
 router.post('/manage/:auctionId/status/draft', ...manage, c.transition('draft'));
 router.post('/manage/:auctionId/status/cancel', ...manage, validate(v.reasonSchema), c.transition('cancel'));
@@ -62,6 +63,7 @@ router.post('/manage/:auctionId/status/complete', ...operate, c.transition('comp
 // Live bidding
 router.post('/manage/:auctionId/live/next', ...operate, validate(v.nextPlayerSchema), c.nextPlayer);
 router.post('/manage/:auctionId/live/bid', ...operate, validate(v.bidSchema), c.bid);
+router.post('/manage/:auctionId/live/assign', ...operate, validate(v.assignPlayerSchema), c.assignPlayer);
 router.post('/manage/:auctionId/live/sold', ...operate, validate(v.lotRefSchema), c.sell);
 router.post('/manage/:auctionId/live/unsold', ...operate, validate(v.lotRefSchema), c.unsold);
 // Corrections are audited and need manage.

@@ -26,4 +26,19 @@ const refreshSchema = Joi.object({
   refreshToken: Joi.string().required(),
 });
 
-module.exports = { registerSchema, loginSchema, refreshSchema };
+const mobileOtpRequestSchema = Joi.object({
+  mobile: Joi.string().pattern(/^[0-9+\-\s()]{7,15}$/).required(),
+});
+
+const mobileOtpVerifySchema = Joi.object({
+  mobile: Joi.string().pattern(/^[0-9+\-\s()]{7,15}$/).required(),
+  otp: Joi.string().length(6).pattern(/^\d+$/).required(),
+});
+
+module.exports = {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+  mobileOtpRequestSchema,
+  mobileOtpVerifySchema,
+};

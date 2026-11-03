@@ -97,7 +97,8 @@ export interface AuctionSnapshot {
     | null;
   /** Player shown in the detail panel (current on-block, or last sold/unsold). */
   featured: PublicLot | null;
-  next: { lot_id: number; lot_number: number; player_name: string } | null;
+  /** Next PENDING lot waiting to come on the block (full public profile). */
+  next: PublicLot | null;
   /** Registered players still shown in the list (sold players excluded). */
   pool: PublicLot[];
   lots: PublicLot[];
@@ -141,7 +142,25 @@ export interface AuctionListItem {
   event_title: string | null;
   pool_size: number;
   sold: number;
+  waiting: number;
+  on_block: number;
   teams: number;
+}
+
+export interface LiveAuctionSummary {
+  auction_id: number;
+  title: string;
+  status: 'LIVE' | 'PAUSED';
+  is_legacy?: boolean;
+  auction_date?: string | null;
+  venue?: string | null;
+  season_name?: string;
+  event_title?: string | null;
+  pool_size?: number;
+  sold?: number;
+  waiting?: number;
+  on_block?: number;
+  teams?: number;
 }
 
 export interface AuctionDetailRecord {
@@ -234,12 +253,62 @@ export interface RoundBid {
   placed_at: string;
 }
 
+export type LiveCategoryMode = 'icon' | 'squad_round' | 'open'
+
+export interface LiveBoardPlayer {
+  lot_id: number
+  lot_number: number
+  player_name: string
+  status: string
+  vibhaag: string | null
+  profile_photo: string | null
+  base_price: number
+  team_name: string | null
+  sold_price: number | null
+}
+
+export interface LiveBoardCategory {
+  auction_category_id: number | null
+  name: string
+  mode: LiveCategoryMode
+  players: LiveBoardPlayer[]
+  waiting: number
+  /** Players still available to auction in this category. */
+  remaining: number
+  on_block: boolean
+  round: {
+    current_round: number
+    total_rounds: number
+    round_size: number
+    sold_in_category: number
+    pending_in_category: number
+    locked_team_ids: number[]
+  } | null
+}
+
+export interface LiveBoardTeam extends AuctionTeam {
+  bid_blocked_reason: string
+  already_bid: boolean
+  bid_amount: number | null
+  can_bid: boolean
+  can_assign: boolean
+}
+
+export interface LiveBoard {
+  categories: LiveBoardCategory[]
+  current_mode: LiveCategoryMode | null
+  teams: LiveBoardTeam[]
+}
+
 export interface AuctionDetail {
   auction: AuctionDetailRecord;
   categories: AuctionCategory[];
   teams: AuctionTeam[];
   lots: AuctionLot[];
   current: (AuctionLot & { bids: RoundBid[]; next_min_bid: number }) | null;
+  live_board: LiveBoard;
+  /** Another auction that is already LIVE/PAUSED (blocks starting this one). */
+  blocking_live: { auction_id: number; title: string; status: AuctionStatus } | null;
   stats: {
     registered: number;
     pool: number;
@@ -348,7 +417,10 @@ export type AuctionReport = 'results' | 'teams' | 'bids';
 const base = (id: number) => `/auctions/manage/${id}`;
 
 export const auctionAdminApi = {
-  list: () => apiClient.get<ApiEnvelope<{ auctions: AuctionListItem[]; can: AuctionAbilities }>>('/auctions/manage'),
+  list: () =>
+    apiClient.get<ApiEnvelope<{ auctions: AuctionListItem[]; live: LiveAuctionSummary | null; can: AuctionAbilities }>>(
+      '/auctions/manage',
+    ),
   seasons: () => apiClient.get<ApiEnvelope<SeasonOption[]>>('/auctions/manage/options/seasons'),
   tournaments: () => apiClient.get<ApiEnvelope<TournamentOption[]>>('/auctions/manage/options/tournaments'),
   create: (body: AuctionSettingsInput & { categories: CategoryInput[] }) =>
@@ -387,6 +459,11 @@ export const auctionAdminApi = {
   restoreLot: (id: number, lotId: number) => apiClient.post<ApiEnvelope<AuctionLot>>(`${base(id)}/players/${lotId}/restore`, {}),
   reorder: (id: number, lotIds: number[]) => apiClient.put<ApiEnvelope<{ ok: true }>>(`${base(id)}/order`, { lot_ids: lotIds }),
 
+  enableLiveBidding: (id: number) =>
+    apiClient.post<ApiEnvelope<{ auction_id: number; status: AuctionStatus; is_legacy: boolean }>>(
+      `${base(id)}/enable-live-bidding`,
+      {},
+    ),
   transition: (id: number, action: LifecycleAction, reason?: string) =>
     apiClient.post<ApiEnvelope<{ status: AuctionStatus }>>(`${base(id)}/status/${action}`, reason ? { reason } : {}),
 
@@ -394,6 +471,12 @@ export const auctionAdminApi = {
     apiClient.post<ApiEnvelope<AuctionLot>>(`${base(id)}/live/next`, { lot_id: lotId }),
   bid: (id: number, lotId: number, teamId: number, amount: number) =>
     apiClient.post<ApiEnvelope<RoundBid>>(`${base(id)}/live/bid`, { lot_id: lotId, team_id: teamId, amount }),
+  assignPlayer: (id: number, lotId: number, teamId: number, amount = 0) =>
+    apiClient.post<ApiEnvelope<AuctionLot>>(`${base(id)}/live/assign`, {
+      lot_id: lotId,
+      team_id: teamId,
+      amount,
+    }),
   sell: (id: number, lotId: number) => apiClient.post<ApiEnvelope<AuctionLot>>(`${base(id)}/live/sold`, { lot_id: lotId }),
   unsold: (id: number, lotId: number) => apiClient.post<ApiEnvelope<AuctionLot>>(`${base(id)}/live/unsold`, { lot_id: lotId }),
   restartBidding: (id: number, lotId: number, reason: string) =>

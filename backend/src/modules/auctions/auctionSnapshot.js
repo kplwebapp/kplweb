@@ -52,8 +52,14 @@ const build = async (auctionId) => {
     repo.findLastEvent(auctionId),
   ]);
 
-  const lots = allLots.filter((l) => l.status !== 'WITHDRAWN' && (l.is_eligible || l.status === 'SOLD'));
-  const current = lots.find((l) => l.lot_id === auction.current_lot_id && l.status === 'ON_BLOCK') ?? null;
+  // Keep the live on-block player visible even if eligibility was flipped mid-lot.
+  const lots = allLots.filter(
+    (l) => l.status !== 'WITHDRAWN' && (l.is_eligible || l.status === 'SOLD' || l.status === 'ON_BLOCK')
+  );
+  const current =
+    lots.find((l) => l.lot_id === auction.current_lot_id && l.status === 'ON_BLOCK') ??
+    lots.find((l) => l.status === 'ON_BLOCK') ??
+    null;
   const increment = auction.min_bid_increment;
   const waiting = lots.filter((l) => l.status === 'PENDING');
   const nextLot = waiting[0] ?? null;
@@ -66,8 +72,8 @@ const build = async (auctionId) => {
       ...publicLot(current),
       bid_round: current.bid_round,
       highest: highest && { amount: highest.amount, team_id: highest.team_id, team_name: highest.team_name },
-      next_min_bid: highest ? highest.amount + increment : current.base_price,
-      points_spent: highest ? highest.amount : current.base_price,
+      next_min_bid: highest ? highest.amount + 1 : 0,
+      points_spent: highest ? highest.amount : 0,
       bids: bids.slice(0, RECENT_BIDS).map((b) => ({
         amount: b.amount,
         team_id: b.team_id,
@@ -138,7 +144,7 @@ const build = async (auctionId) => {
     teams,
     current: currentView,
     featured: featured ?? null,
-    next: nextLot ? { lot_id: nextLot.lot_id, lot_number: nextLot.lot_number, player_name: nextLot.player_name } : null,
+    next: nextLot ? publicLot(nextLot) : null,
     pool,
     lots: lots.map(publicLot),
     counts: {

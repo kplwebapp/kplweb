@@ -19,6 +19,7 @@ import MatchesPage from '@/admin/pages/Matches'
 import LiveScoringPage from '@/admin/pages/LiveScoring'
 import PointsTablePage from '@/admin/pages/PointsTable'
 import AuctionsPage from '@/admin/pages/Auctions'
+import LiveDeskPage from '@/admin/pages/Auctions/LiveDesk'
 import AuctionManagePage from '@/admin/pages/AuctionManage'
 import MembersPage from '@/admin/pages/Members'
 
@@ -46,6 +47,7 @@ export default function AdminRoutes() {
           <Route path="tournaments/:category/:id" element={<TournamentManagePage />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="auctions" element={<AuctionsPage />} />
+          <Route path="auctions/live" element={<LiveDeskPage />} />
           <Route path="auctions/:id" element={<AuctionManagePage />} />
           <Route path="events" element={<FirstCategoryRedirect kind="EVENT" />} />
           <Route path="events/:category" element={<ActivitiesPage kind="EVENT" />} />
@@ -63,7 +65,7 @@ export default function AdminRoutes() {
           <Route path="matches" element={<MatchesPage />} />
           <Route path="scoring" element={<LiveScoringPage />} />
           <Route path="points-table" element={<PointsTablePage />} />
-          <Route path="auction" element={<Navigate to={`${ADMIN_BASE}/auctions`} replace />} />
+          <Route path="auction" element={<Navigate to={`${ADMIN_BASE}/auctions/live`} replace />} />
 
           <Route path="about" element={redirectToDashboard} />
           <Route path="contact" element={redirectToDashboard} />

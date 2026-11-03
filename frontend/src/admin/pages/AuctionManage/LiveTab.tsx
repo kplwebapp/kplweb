@@ -1,23 +1,34 @@
-import { useState } from 'react'
-import { Alert, Badge, Button, ButtonGroup, Card, Col, Form, InputGroup, ListGroup, Row } from 'react-bootstrap'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Badge, Button, Card, Col, Dropdown, Form, ListGroup, Row, Spinner } from 'react-bootstrap'
 import TeamBadge from '@/components/tournament/TeamBadge'
-import { auctionAdminApi, type AuctionDetail, type AuctionLot, type AuctionTeam } from '@/services/api/auctionApi'
+import {
+  auctionAdminApi,
+  type AuctionDetail,
+  type LiveBoardCategory,
+  type LiveBoardTeam,
+} from '@/services/api/auctionApi'
 import { formatPoints, playerStyle } from '@/utils/auctionText'
 import { PlayerPhoto } from './PlayersTab'
 import type { TabProps } from './shared'
 
 type Current = NonNullable<AuctionDetail['current']>
 
+const MODE_HINT: Record<string, string> = {
+  icon: 'No bidding — assign from paper cheat',
+  squad_round: 'One purchase per team per round',
+  open: 'Bid while points and squad slots remain',
+}
+
 export default function LiveTab(props: TabProps) {
   const { detail } = props
-  const { auction, current } = detail
+  const { auction, current, live_board: board } = detail
   const running = auction.status === 'LIVE' || auction.status === 'PAUSED'
 
   if (auction.is_legacy) {
     return (
-      <Alert variant="info">
-        This auction is kept as history from before the auction system. Create a new auction under{' '}
-        <strong>Auctions → New auction</strong> to run live bidding.
+      <Alert variant="warning">
+        This auction is still marked as history, so live bidding is locked. Open Overview and choose{' '}
+        <strong>Enable live bidding</strong>.
       </Alert>
     )
   }
@@ -28,56 +39,238 @@ export default function LiveTab(props: TabProps) {
         ? 'The auction is complete. See Results for squads and spending.'
         : auction.status === 'CANCELLED'
           ? 'The auction was cancelled.'
-          : 'Bidding opens when the auction is started. Mark it ready, then start it from the buttons above.'
+          : 'Mark the auction ready, then start it to open the live desk.'
     return <Alert variant="info">{message}</Alert>
   }
 
+  if (!board) {
+    return <div className="text-center py-4"><Spinner animation="border" /></div>
+  }
+
   return (
-    <Row className="g-4">
-      <Col xl={8}>
-        {auction.status === 'PAUSED' && (
-          <Alert variant="warning">The auction is paused. Resume it to take bids.</Alert>
-        )}
-        {current ? (
-          <OnTheBlock key={`${current.lot_id}:${current.bid_round}:${current.next_min_bid}`} {...props} current={current} />
-        ) : (
-          <PickNext {...props} />
-        )}
-      </Col>
-      <Col xl={4}>
-        <TeamsPanel teams={detail.teams} leaderId={current?.bids[0]?.team_id ?? null} />
-      </Col>
-    </Row>
+    <div className="d-flex flex-column gap-3">
+      {auction.status === 'PAUSED' && (
+        <Alert variant="warning" className="mb-0">The auction is paused. Resume it to take bids.</Alert>
+      )}
+      <LiveDesk {...props} board={board} current={current} />
+    </div>
   )
 }
 
-/** Why a team cannot bid `amount` right now, or '' if it can (the server checks again). */
-function blocker(team: AuctionTeam, amount: number, leaderId: number | null) {
-  if (team.team_id === leaderId) return 'Highest bidder'
-  if (team.slots_left <= 0) return 'Squad full'
-  if (amount > team.remaining) return 'Not enough points'
-  return ''
+function LiveDesk({
+  detail,
+  auctionId,
+  run,
+  ask,
+  board,
+  current,
+}: TabProps & { board: NonNullable<AuctionDetail['live_board']>; current: Current | null }) {
+  const categories = board.categories
+  const categoryKeyOf = (c: LiveBoardCategory) => String(c.auction_category_id ?? c.name)
+  const [categoryKey, setCategoryKey] = useState<string>(() =>
+    categoryKeyOf(categories.find((c) => c.on_block) ?? categories[0] ?? { name: 'Icon Player' } as LiveBoardCategory),
+  )
+
+  useEffect(() => {
+    const onBlock = categories.find((c) => c.on_block)
+    if (onBlock) setCategoryKey(categoryKeyOf(onBlock))
+  }, [categories, current?.lot_id])
+
+  const active =
+    categories.find((c) => categoryKeyOf(c) === categoryKey) ?? categories[0] ?? null
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      <Row className="g-3">
+        <Col xl={4}>
+          <CategoryPanel
+            categories={categories}
+            activeKey={categoryKey}
+            onSelect={setCategoryKey}
+            active={active}
+            auctionId={auctionId}
+            run={run}
+            canOperate={detail.can.operate && detail.auction.status === 'LIVE'}
+            canPutUp={detail.can.operate && (detail.auction.status === 'LIVE' || detail.auction.status === 'PAUSED')}
+            hasCurrent={Boolean(current)}
+          />
+        </Col>
+        <Col xl={8}>
+          {current ? (
+            <LivePlayerPanel
+              detail={detail}
+              auctionId={auctionId}
+              run={run}
+              ask={ask}
+              current={current}
+              mode={board.current_mode}
+              activeCategory={active}
+            />
+          ) : (
+            <Card className="border-0 shadow-sm h-100">
+              <Card.Body className="text-muted text-center py-5">
+                Choose a player from a category on the left and put them on the live screen.
+              </Card.Body>
+            </Card>
+          )}
+        </Col>
+      </Row>
+
+      {current ? (
+        <TeamBidsSection
+          detail={detail}
+          auctionId={auctionId}
+          run={run}
+          current={current}
+          mode={board.current_mode}
+          teams={board.teams}
+        />
+      ) : null}
+    </div>
+  )
 }
 
-function OnTheBlock({ detail, auctionId, run, ask, current }: TabProps & { current: Current }) {
-  const { auction, teams, can } = detail
-  const live = auction.status === 'LIVE'
+function CategoryPanel({
+  categories,
+  activeKey,
+  onSelect,
+  active,
+  auctionId,
+  run,
+  canOperate,
+  canPutUp,
+  hasCurrent,
+}: {
+  categories: LiveBoardCategory[]
+  activeKey: string
+  onSelect: (key: string) => void
+  active: LiveBoardCategory | null
+  auctionId: number
+  run: TabProps['run']
+  canOperate: boolean
+  canPutUp: boolean
+  hasCurrent: boolean
+}) {
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const waiting = useMemo(
+    () => (active?.players ?? []).filter((p) => p.status === 'PENDING' || p.status === 'UNSOLD'),
+    [active],
+  )
+
+  const putOnLive = async (lotId: number, name: string) => {
+    if (hasCurrent) return
+    setBusyId(lotId)
+    await run(() => auctionAdminApi.nextPlayer(auctionId, lotId), `${name} is on the live screen.`)
+    setBusyId(null)
+  }
+
+  const activeRemaining = active?.remaining ?? active?.waiting ?? 0
+  const activeLabel = active
+    ? `${active.name} (${activeRemaining})`
+    : 'Select category'
+
+  return (
+    <Card className="border-0 shadow-sm h-100">
+      <Card.Header className="bg-white">
+        <div className="fw-semibold mb-2">Players by category</div>
+        <Dropdown onSelect={(key) => key && onSelect(key)}>
+          <Dropdown.Toggle
+            variant="outline-secondary"
+            className="w-100 text-start"
+            id="live-category-dropdown"
+          >
+            {activeLabel}
+          </Dropdown.Toggle>
+          <Dropdown.Menu className="w-100">
+            {categories.map((c) => {
+              const key = String(c.auction_category_id ?? c.name)
+              const remaining = c.remaining ?? c.waiting ?? 0
+              return (
+                <Dropdown.Item key={`${c.name}-${key}`} eventKey={key} active={key === activeKey}>
+                  {c.name} ({remaining})
+                </Dropdown.Item>
+              )
+            })}
+          </Dropdown.Menu>
+        </Dropdown>
+      </Card.Header>
+      <Card.Body className="p-0">
+        {active ? (
+          <>
+            <div className="px-3 py-2 border-bottom small text-muted">
+              {MODE_HINT[active.mode] ?? active.mode}
+              {active.round
+                ? ` · Round ${active.round.current_round} of ${active.round.total_rounds}`
+                : null}
+            </div>
+            <ListGroup variant="flush" style={{ maxHeight: '32rem', overflowY: 'auto' }}>
+              {waiting.map((p) => (
+                <ListGroup.Item key={p.lot_id} className="d-flex align-items-center gap-2">
+                  <PlayerPhoto path={p.profile_photo} name={p.player_name} size={28} />
+                  <span className="flex-grow-1 min-w-0">
+                    <span className="d-block text-truncate fw-semibold">{p.player_name}</span>
+                    <small className="text-muted">{p.vibhaag || '—'}</small>
+                  </span>
+                  {canPutUp && (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={busyId === p.lot_id || hasCurrent}
+                      onClick={() => void putOnLive(p.lot_id, p.player_name)}
+                    >
+                      Put on live
+                    </Button>
+                  )}
+                </ListGroup.Item>
+              ))}
+              {waiting.length === 0 && (
+                <ListGroup.Item className="text-muted small">No waiting players in this category.</ListGroup.Item>
+              )}
+            </ListGroup>
+            {hasCurrent && canPutUp && (
+              <div className="px-3 py-2 small text-muted border-top">
+                Finish the current player (sold / unsold / assign) before putting another on live.
+              </div>
+            )}
+            {!canOperate && canPutUp && (
+              <div className="px-3 py-2 small text-warning border-top">
+                Auction is paused — you can still put a player on screen; resume to bid.
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-muted p-3 mb-0">No categories yet. Add them under Settings / Player pool.</p>
+        )}
+      </Card.Body>
+    </Card>
+  )
+}
+
+function LivePlayerPanel({
+  detail,
+  auctionId,
+  run,
+  ask,
+  current,
+  mode,
+  activeCategory,
+}: TabProps & {
+  current: Current
+  mode: AuctionDetail['live_board']['current_mode']
+  activeCategory: LiveBoardCategory | null
+}) {
+  const live = detail.auction.status === 'LIVE'
+  const canOperate = detail.can.operate && live
   const highest = current.bids[0] ?? null
-  const increment = auction.min_bid_increment
-  const minimum = current.next_min_bid
-  const [amountText, setAmountText] = useState(String(minimum))
   const [busy, setBusy] = useState(false)
-  const amount = Number(amountText)
-  const amountValid = Number.isInteger(amount) && amount >= minimum
+  const isIcon = mode === 'icon'
 
   const act = async (action: () => Promise<unknown>, message: string) => {
     setBusy(true)
-    await run(action, message)
+    const ok = await run(action, message)
     setBusy(false)
+    return ok
   }
-
-  const bid = (team: AuctionTeam) =>
-    act(() => auctionAdminApi.bid(auctionId, current.lot_id, team.team_id, amount), `${team.team_name} bids ${formatPoints(amount)}.`)
 
   const sell = () =>
     highest &&
@@ -90,198 +283,237 @@ function OnTheBlock({ detail, auctionId, run, ask, current }: TabProps & { curre
       ),
       confirmLabel: 'Sold',
       variant: 'success',
-      onConfirm: () => run(() => auctionAdminApi.sell(auctionId, current.lot_id), `${current.player_name} sold to ${highest.team_name}.`),
-    })
-
-  const restart = () =>
-    ask({
-      title: 'Restart the bidding for this player?',
-      body: 'Bids so far are set aside (they stay in the history) and bidding starts again from the base points.',
-      confirmLabel: 'Restart bidding',
-      variant: 'warning',
-      reason: 'required',
-      onConfirm: (reason) => run(() => auctionAdminApi.restartBidding(auctionId, current.lot_id, reason), 'Bidding restarted.'),
+      onConfirm: () =>
+        run(() => auctionAdminApi.sell(auctionId, current.lot_id), `${current.player_name} sold to ${highest.team_name}.`),
     })
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="border-0 shadow-sm h-100">
+      <Card.Header className="bg-white d-flex flex-wrap justify-content-between gap-2">
+        <span className="fw-semibold">Live player</span>
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          {activeCategory?.round && (
+            <Badge bg="info">
+              Round {activeCategory.round.current_round}/{activeCategory.round.total_rounds}
+            </Badge>
+          )}
+          <Badge bg={isIcon ? 'warning' : 'success'} text={isIcon ? 'dark' : undefined}>
+            {isIcon ? 'Icon · assign only' : 'Live bidding'}
+          </Badge>
+        </div>
+      </Card.Header>
       <Card.Body>
-        <div className="d-flex flex-wrap gap-3 align-items-center mb-3">
-          <PlayerPhoto path={current.profile_photo} name={current.player_name} size={88} />
-          <div className="flex-grow-1 min-w-0">
-            <div className="text-muted small">Lot {current.lot_number}{current.bid_round > 1 ? ` · round ${current.bid_round}` : ''}</div>
-            <h3 className="h4 mb-1">{current.player_name}</h3>
-            <div className="d-flex flex-wrap gap-2 align-items-center small">
-              {current.category_name && <Badge bg="primary">{current.category_name}</Badge>}
-              {current.vibhaag && <span>{current.vibhaag}</span>}
-              {playerStyle(current) && <span className="text-muted">{playerStyle(current)}</span>}
+        <Row className="g-3 align-items-start">
+          <Col sm={8}>
+            <div className="text-muted small mb-1">
+              Lot {current.lot_number}
+              {current.category_name ? ` · ${current.category_name}` : ''}
             </div>
-          </div>
-          <div className="text-end">
-            <div className="text-muted small">{highest ? 'Highest bid' : 'Base points'}</div>
-            <div className="display-6 fw-bold">{formatPoints(highest?.amount ?? current.base_price)}</div>
-            <div className="fw-semibold text-success">{highest ? highest.team_name : 'No bids yet'}</div>
-          </div>
-        </div>
-
-        {live && can.operate && (
-          <>
-            <Form.Label htmlFor="bid-amount" className="small mb-1">
-              Bid amount (at least {formatPoints(minimum)})
-            </Form.Label>
-            <InputGroup className="mb-2">
-              <Form.Control id="bid-amount" type="number" min={minimum} step={increment} value={amountText}
-                isInvalid={!amountValid} onChange={(e) => setAmountText(e.target.value)} />
-              <Button variant="outline-secondary" onClick={() => setAmountText(String(minimum))}>Minimum</Button>
-              {[2, 5].map((n) => (
-                <Button key={n} variant="outline-secondary" onClick={() => setAmountText(String(minimum + increment * (n - 1)))}>
-                  +{formatPoints(increment * (n - 1))}
-                </Button>
-              ))}
-            </InputGroup>
-            <div className="small text-muted mb-2">Choose the team making this bid:</div>
-            <Row xs={2} md={3} className="g-2 mb-3">
-              {teams.map((t) => {
-                const reason = blocker(t, amount, highest?.team_id ?? null)
-                return (
-                  <Col key={t.team_id}>
-                    <Button variant={reason ? 'outline-secondary' : 'outline-primary'} className="w-100 text-start h-100"
-                      disabled={busy || !amountValid || Boolean(reason)} onClick={() => bid(t)}>
-                      <div className="d-flex align-items-center gap-2">
-                        <TeamBadge name={t.team_name} logo={t.team_logo} size={26} />
-                        <span className="fw-semibold text-truncate">{t.short_name || t.team_name}</span>
-                      </div>
-                      <small className="d-block">{reason || `${formatPoints(t.remaining)} left`}</small>
-                    </Button>
-                  </Col>
-                )
-              })}
+            <h3 className="h4 mb-2">{current.player_name}</h3>
+            <Row className="g-2 small">
+              <Col xs={6}><span className="text-muted d-block">Vibhaag</span><strong>{current.vibhaag || '—'}</strong></Col>
+              <Col xs={6}><span className="text-muted d-block">Style</span><strong>{playerStyle(current) || '—'}</strong></Col>
+              <Col xs={6}>
+                <span className="text-muted d-block">{isIcon ? 'Assign points' : 'Current bid'}</span>
+                <strong className="fs-5">{formatPoints(highest?.amount ?? 0)}</strong>
+              </Col>
+              <Col xs={6}>
+                <span className="text-muted d-block">{isIcon ? 'Leading team' : 'Leading / next min'}</span>
+                <strong>
+                  {highest
+                    ? `${highest.team_name} · min ${formatPoints(current.next_min_bid)}`
+                    : `No bids · min ${formatPoints(current.next_min_bid)}`}
+                </strong>
+              </Col>
             </Row>
-          </>
+            {!isIcon && canOperate && (
+              <div className="d-flex flex-wrap gap-2 mt-3">
+                {highest ? (
+                  <Button variant="success" disabled={busy} onClick={sell}>
+                    Sold to {highest.team_name} · {formatPoints(highest.amount)}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void act(
+                        () => auctionAdminApi.unsold(auctionId, current.lot_id),
+                        `${current.player_name} unsold.`,
+                      )
+                    }
+                  >
+                    Unsold
+                  </Button>
+                )}
+              </div>
+            )}
+          </Col>
+          <Col sm={4} className="text-center">
+            <PlayerPhoto path={current.profile_photo} name={current.player_name} size={160} />
+          </Col>
+        </Row>
+      </Card.Body>
+    </Card>
+  )
+}
+
+function TeamBidsSection({
+  detail,
+  auctionId,
+  run,
+  current,
+  mode,
+  teams,
+}: {
+  detail: AuctionDetail
+  auctionId: number
+  run: TabProps['run']
+  current: Current
+  mode: AuctionDetail['live_board']['current_mode']
+  teams: LiveBoardTeam[]
+}) {
+  const live = detail.auction.status === 'LIVE'
+  const canOperate = detail.can.operate && live
+  const [busy, setBusy] = useState(false)
+  const isIcon = mode === 'icon'
+
+  const act = async (action: () => Promise<unknown>, message: string) => {
+    setBusy(true)
+    const ok = await run(action, message)
+    setBusy(false)
+    return ok
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      <div>
+        <h3 className="h6 mb-2">{isIcon ? 'Assign to a team' : 'Team bids'}</h3>
+        <Row xs={1} md={2} xl={3} className="g-3">
+          {teams.map((team) => (
+            <Col key={team.team_id}>
+              <TeamBidCard
+                team={team}
+                isIcon={isIcon}
+                disabled={!canOperate || busy}
+                minimum={current.next_min_bid}
+                onBid={(amount) =>
+                  act(
+                    () => auctionAdminApi.bid(auctionId, current.lot_id, team.team_id, amount),
+                    `${team.team_name} bids ${formatPoints(amount)}.`,
+                  )
+                }
+                onAssign={(amount) =>
+                  act(
+                    () => auctionAdminApi.assignPlayer(auctionId, current.lot_id, team.team_id, amount),
+                    `${current.player_name} assigned to ${team.team_name}.`,
+                  )
+                }
+              />
+            </Col>
+          ))}
+        </Row>
+        {teams.length === 0 && (
+          <Alert variant="warning" className="mt-2 mb-0">Add participating teams under Teams & budgets.</Alert>
         )}
+      </div>
 
-        <div className="d-flex flex-wrap gap-2">
-          {can.operate && live && (
-            highest ? (
-              <Button variant="success" size="lg" disabled={busy} onClick={sell}>
-                Sold to {highest.team_name} · {formatPoints(highest.amount)}
-              </Button>
-            ) : (
-              <Button variant="secondary" size="lg" disabled={busy}
-                onClick={() => act(() => auctionAdminApi.unsold(auctionId, current.lot_id), `${current.player_name} unsold.`)}>
-                Unsold
-              </Button>
-            )
-          )}
-          {can.manage && highest && (
-            <Button variant="outline-warning" disabled={busy} onClick={restart}>Restart bidding…</Button>
-          )}
-        </div>
-
-        <h6 className="mt-4">Bids this round</h6>
-        {current.bids.length === 0 ? (
-          <p className="text-muted small mb-0">No bids yet.</p>
-        ) : (
-          <ListGroup variant="flush" className="small">
+      {!isIcon && current.bids.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <Card.Header className="bg-white fw-semibold">Bids this player</Card.Header>
+          <ListGroup variant="flush">
             {current.bids.map((b, i) => (
-              <ListGroup.Item key={b.bid_id} className="d-flex justify-content-between px-0">
-                <span className={i === 0 ? 'fw-semibold' : 'text-muted'}>{b.team_name}</span>
-                <span className={i === 0 ? 'fw-semibold' : 'text-muted'}>
-                  {formatPoints(b.amount)} · {new Date(b.placed_at).toLocaleTimeString('en-IN')}
-                </span>
+              <ListGroup.Item key={b.bid_id} className="d-flex justify-content-between">
+                <span className={i === 0 ? 'fw-semibold' : undefined}>{b.team_name}</span>
+                <span className={i === 0 ? 'fw-semibold' : 'text-muted'}>{formatPoints(b.amount)}</span>
               </ListGroup.Item>
             ))}
           </ListGroup>
-        )}
-      </Card.Body>
-    </Card>
+        </Card>
+      )}
+    </div>
   )
 }
 
-function PickNext({ detail, auctionId, run }: TabProps) {
-  const { auction, lots, can } = detail
+function TeamBidCard({
+  team,
+  isIcon,
+  disabled,
+  minimum,
+  onBid,
+  onAssign,
+}: {
+  team: LiveBoardTeam
+  isIcon: boolean
+  disabled: boolean
+  minimum: number
+  onBid: (amount: number) => Promise<boolean>
+  onAssign: (amount: number) => Promise<boolean>
+}) {
+  const [amountText, setAmountText] = useState(String(Math.max(0, minimum)))
   const [busy, setBusy] = useState(false)
-  const [showUnsold, setShowUnsold] = useState(false)
-  const waiting = lots.filter((l) => l.status === 'PENDING' && l.is_eligible)
-  const unsold = lots.filter((l) => l.status === 'UNSOLD' && l.is_eligible)
-  const live = auction.status === 'LIVE' && can.operate
+  const amount = Number(amountText)
+  const amountValid = Number.isInteger(amount) && amount >= (isIcon ? 0 : minimum)
 
-  const bringUp = async (lot: AuctionLot | null) => {
+  useEffect(() => {
+    setAmountText(String(Math.max(0, minimum)))
+  }, [minimum, team.team_id])
+
+  const submit = async () => {
+    if (!amountValid) return
     setBusy(true)
-    await run(() => auctionAdminApi.nextPlayer(auctionId, lot?.lot_id ?? null), 'Player is up for bidding.')
+    if (isIcon) await onAssign(amount)
+    else await onBid(amount)
     setBusy(false)
   }
 
-  const list = showUnsold ? unsold : waiting
+  const blocked = isIcon ? !team.can_assign : !team.can_bid
+  const reason = team.bid_blocked_reason
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className={`h-100 border-0 shadow-sm${team.already_bid ? ' border-success' : ''}`}>
       <Card.Body>
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h3 className="h5 mb-0">No player is up</h3>
-            <small className="text-muted">{waiting.length} waiting · {unsold.length} unsold</small>
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <TeamBadge name={team.team_name} logo={team.team_logo} size={40} />
+          <div className="min-w-0">
+            <div className="fw-semibold text-truncate">{team.team_name}</div>
+            <small className="text-muted">
+              {team.players_bought}/{team.max_players} players
+            </small>
           </div>
-          {live && waiting.length > 0 && (
-            <Button size="lg" disabled={busy} onClick={() => bringUp(null)}>
-              Next player: {waiting[0].player_name}
-            </Button>
-          )}
         </div>
-        {waiting.length === 0 && (
-          <Alert variant="light" className="small">
-            Every player has been auctioned. Bring back an unsold player, or complete the auction.
-          </Alert>
-        )}
-
-        <ButtonGroup size="sm" className="mb-2">
-          <Button variant={showUnsold ? 'outline-primary' : 'primary'} onClick={() => setShowUnsold(false)}>Waiting ({waiting.length})</Button>
-          <Button variant={showUnsold ? 'primary' : 'outline-primary'} onClick={() => setShowUnsold(true)}>Unsold ({unsold.length})</Button>
-        </ButtonGroup>
-        <ListGroup variant="flush" style={{ maxHeight: 420, overflowY: 'auto' }}>
-          {list.map((l) => (
-            <ListGroup.Item key={l.lot_id} className="d-flex align-items-center gap-2 px-0">
-              <span className="text-muted small" style={{ width: 28 }}>{l.lot_number}</span>
-              <PlayerPhoto path={l.profile_photo} name={l.player_name} size={28} />
-              <span className="flex-grow-1 min-w-0">
-                <span className="d-block text-truncate">{l.player_name}</span>
-                <small className="text-muted">{[l.category_name, l.vibhaag, formatPoints(l.base_price)].filter(Boolean).join(' · ')}</small>
-              </span>
-              {live && (
-                <Button size="sm" variant="outline-primary" disabled={busy} onClick={() => bringUp(l)}>
-                  {showUnsold ? 'Bring back' : 'Bring up'}
-                </Button>
-              )}
-            </ListGroup.Item>
-          ))}
-          {list.length === 0 && <ListGroup.Item className="px-0 text-muted small">None.</ListGroup.Item>}
-        </ListGroup>
+        <ul className="list-unstyled small mb-3">
+          <li className="d-flex justify-content-between mb-1">
+            <span className="text-muted">Points remaining</span>
+            <strong>{formatPoints(team.remaining)}</strong>
+          </li>
+          <li className="d-flex justify-content-between">
+            <span className="text-muted">{isIcon ? 'Assign points' : 'Bidding points'}</span>
+            <strong>{team.bid_amount != null ? formatPoints(team.bid_amount) : '—'}</strong>
+          </li>
+        </ul>
+        <Form.Control
+          size="sm"
+          type="number"
+          min={isIcon ? 0 : minimum}
+          step={1}
+          className="mb-2"
+          value={amountText}
+          disabled={disabled || blocked || busy}
+          isInvalid={amountText !== '' && !amountValid}
+          onChange={(e) => setAmountText(e.target.value)}
+          aria-label={`${team.team_name} bid amount`}
+        />
+        <Button
+          className="w-100"
+          variant={isIcon ? 'warning' : 'primary'}
+          disabled={disabled || blocked || busy || !amountValid}
+          onClick={() => void submit()}
+        >
+          {busy ? 'Submitting…' : isIcon ? 'Assign to team' : 'Submit bid'}
+        </Button>
+        {reason ? <div className="small text-muted mt-2">{reason}</div> : null}
       </Card.Body>
-    </Card>
-  )
-}
-
-function TeamsPanel({ teams, leaderId }: { teams: AuctionTeam[]; leaderId: number | null }) {
-  return (
-    <Card className="border-0 shadow-sm">
-      <Card.Header className="bg-white fw-semibold">Teams</Card.Header>
-      <ListGroup variant="flush">
-        {teams.map((t) => (
-          <ListGroup.Item key={t.team_id} className={t.team_id === leaderId ? 'bg-success-subtle' : undefined}>
-            <div className="d-flex align-items-center gap-2">
-              <TeamBadge name={t.team_name} logo={t.team_logo} size={30} />
-              <div className="flex-grow-1 min-w-0">
-                <div className="fw-semibold text-truncate">{t.team_name}</div>
-                <small className="text-muted">{t.players_bought} / {t.max_players} players</small>
-              </div>
-              <div className="text-end">
-                <div className="fw-semibold">{formatPoints(t.remaining)}</div>
-                <small className="text-muted">of {formatPoints(t.budget)}</small>
-              </div>
-            </div>
-          </ListGroup.Item>
-        ))}
-      </ListGroup>
     </Card>
   )
 }

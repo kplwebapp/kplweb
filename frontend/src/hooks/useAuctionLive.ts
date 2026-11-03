@@ -4,9 +4,9 @@ import { auctionPublicApi, type AuctionSnapshot } from '@/services/api/auctionAp
 export type LiveMode = 'connecting' | 'live' | 'reconnecting' | 'polling'
 
 /** Fallback poll when the live stream is unavailable. */
-const POLL_MS = 4000
-/** Always re-fetch the board at least this often, including while streaming. */
-const REFRESH_MS = 2 * 60 * 1000
+const POLL_MS = 5000
+/** Re-fetch board (bids / team points) this often, including while streaming. */
+const REFRESH_MS = 5000
 const NOT_FOUND = 'Auction not found'
 export const UNAVAILABLE = 'This auction is not available.'
 
@@ -14,8 +14,8 @@ type State = { id: number; snapshot: AuctionSnapshot | null; mode: LiveMode; err
 
 /**
  * The public view of an auction, kept up to date. Listens to the server's live stream so that
- * sold / unsold / next-player changes appear immediately; also refreshes every 2 minutes as a
- * safety net. If the stream is refused or unavailable, polls every few seconds instead.
+ * sold / unsold / next-player / bid changes appear immediately; also refreshes every 5 seconds
+ * so points stay current. If the stream is refused or unavailable, polls every 5 seconds instead.
  */
 export function useAuctionLive(auctionId: number | null) {
   const [state, setState] = useState<State | null>(null)
@@ -77,7 +77,7 @@ export function useAuctionLive(auctionId: number | null) {
       refresh = undefined
     }
 
-    // Immediate load, then a 2-minute refresh for the whole board (player panel included).
+    // Immediate load, then refresh every 5s so auction points stay current.
     fetchOnce()
     startRefresh()
 

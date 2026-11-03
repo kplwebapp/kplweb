@@ -45,7 +45,7 @@ const controller = {
   stream: asyncHandler(async (req, res) => stream.subscribe(res, auctionId(req))),
 
   // Admin reads
-  list: ok(async (req) => ({ auctions: await service.list(), can: await abilities(req) })),
+  list: ok(async (req) => ({ ...(await service.list()), can: await abilities(req) })),
   detail: ok(async (req) => ({ ...(await service.detail(auctionId(req))), can: await abilities(req) })),
   candidates: ok((req) => service.candidates(auctionId(req))),
   teamOptions: ok((req) => service.teamOptions(auctionId(req))),
@@ -82,12 +82,17 @@ const controller = {
   ),
 
   // Lifecycle
+  enableLiveBidding: ok(
+    (req) => service.enableLiveBidding(auctionId(req), req.user.id),
+    'Live bidding enabled for this auction'
+  ),
   transition: (action) =>
     ok((req) => service.transition(auctionId(req), action, req.body, req.user.id), 'Auction status updated'),
 
   // Live (auctions:operate)
   nextPlayer: ok((req) => service.nextPlayer(auctionId(req), req.body.lot_id ?? null, req.user.id), 'Player is up'),
   bid: ok((req) => service.placeBid(auctionId(req), req.body, req.user.id), 'Bid recorded'),
+  assignPlayer: ok((req) => service.assignPlayer(auctionId(req), req.body, req.user.id), 'Player assigned'),
   sell: ok((req) => service.sell(auctionId(req), req.body.lot_id, req.user.id), 'Player sold'),
   unsold: ok((req) => service.markUnsold(auctionId(req), req.body.lot_id, req.user.id), 'Player unsold'),
 };

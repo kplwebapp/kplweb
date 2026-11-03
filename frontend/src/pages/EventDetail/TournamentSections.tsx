@@ -87,7 +87,6 @@ export default function TournamentSections({ slug, status, startDate }: Props) {
                   <Card.Body>
                     <TeamBadge name={team.team_name} logo={team.team_logo} size={72} />
                     <div className="fw-semibold mt-2">{team.team_name}</div>
-                    {team.short_name && <small className="text-muted">{team.short_name}</small>}
                   </Card.Body>
                 </Card>
               </Col>

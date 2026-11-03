@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { getUploadUrl } from '@/utils/activityImage'
+import { resolveTeamLogoSrc } from '@/constants/teamLogos'
 import './tournament.scss'
 
 type Props = {
   name: string
-  logo: string | null
+  logo?: string | null
   size?: number
 }
 
@@ -16,19 +17,24 @@ const initials = (name: string) =>
     .map((word) => word[0]?.toUpperCase())
     .join('')
 
-/** Team logo, or the team's initials in a circle when no logo was uploaded (or it fails to load). */
-export default function TeamBadge({ name, logo, size = 40 }: Props) {
+/** Team logo as provided (no filters). Falls back to initials if missing. */
+export default function TeamBadge({ name, logo = null, size = 40 }: Props) {
   const [failedLogo, setFailedLogo] = useState<string | null>(null)
   const style = { width: size, height: size, fontSize: size * 0.38 }
+  const bundled = resolveTeamLogoSrc(name)
+  const uploadSrc = logo && logo !== failedLogo ? getUploadUrl(logo) : null
+  const src = bundled || uploadSrc
 
-  if (logo && logo !== failedLogo) {
+  if (src) {
     return (
       <img
-        src={getUploadUrl(logo)}
+        src={src}
         alt={`${name} logo`}
         className="team-badge team-badge--logo"
         style={style}
-        onError={() => setFailedLogo(logo)}
+        onError={() => {
+          if (logo) setFailedLogo(logo)
+        }}
       />
     )
   }

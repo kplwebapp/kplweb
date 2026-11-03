@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Alert, Badge, Button, Nav, Spinner } from 'react-bootstrap'
 import AppToast from '@/components/common/AppToast'
 import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
-import { auctionsItem } from '@/admin/config/sidebar'
+import { auctionPath, auctionsItem } from '@/admin/config/sidebar'
 import { auctionAdminApi, type AuctionStatus, type LifecycleAction } from '@/services/api/auctionApi'
 import { auctionStatusLabel, auctionStatusVariant, formatAuctionDate } from '@/utils/auctionText'
 import ConfirmModal, { type ConfirmRequest } from './ConfirmModal'
@@ -44,7 +44,7 @@ const STEPS: Step[] = [
     action: 'start', label: 'Start auction', variant: 'success', from: ['READY'], needs: 'operate',
     confirm: {
       title: 'Start the auction?',
-      body: 'Bidding opens and the public live screen shows it. Squad rules, categories and the default budget are then locked.',
+      body: 'Only one auction can be live at a time. Bidding opens on the public live screen. Squad rules, categories and the default budget are then locked.',
     },
   },
   { action: 'pause', label: 'Pause', variant: 'warning', from: ['LIVE'], needs: 'operate' },
@@ -103,13 +103,21 @@ export default function AuctionManagePage() {
     )
   }
 
-  const { auction, can } = data
+  const { auction, can, blocking_live: blockingLive } = data
   const activeTab = tab ?? defaultTab(auction.status)
   const meta = [auction.event_title, auction.season_name, formatAuctionDate(auction.auction_date), auction.venue]
     .filter(Boolean)
     .join(' · ')
+  const startBlocked = auction.status === 'READY' && Boolean(blockingLive)
 
   const step = (s: Step) => {
+    if (s.action === 'start' && blockingLive) {
+      setToast({
+        message: `Only one auction can be live. Finish "${blockingLive.title}" first.`,
+        variant: 'danger',
+      })
+      return
+    }
     const go = (reason?: string) =>
       run(() => auctionAdminApi.transition(id, s.action, reason), `${s.label}: done.`).then((ok) => {
         if (ok && (s.action === 'start' || s.action === 'resume')) setTab('live')
@@ -118,7 +126,9 @@ export default function AuctionManagePage() {
     if (!s.confirm) return void go()
     setConfirm({ ...s.confirm, confirmLabel: s.label, onConfirm: (reason) => go(reason || undefined) })
   }
-  const steps = auction.is_legacy ? [] : STEPS.filter((s) => s.from.includes(auction.status) && can[s.needs])
+  const steps = auction.is_legacy
+    ? []
+    : STEPS.filter((s) => s.from.includes(auction.status) && can[s.needs] && !(s.action === 'start' && startBlocked))
   const tabProps: TabProps = { detail: data, auctionId: id, run, ask: setConfirm }
 
   return (
@@ -144,10 +154,38 @@ export default function AuctionManagePage() {
       />
 
       {auction.is_legacy && (
-        <Alert variant="info">This auction was recorded before the auction system and is kept read-only as history.</Alert>
+        <Alert variant="warning" className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            This auction is marked as history from before the live bidding system, so players cannot be put on the block
+            yet.
+          </div>
+          {can.manage && (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() =>
+                run(
+                  () => auctionAdminApi.enableLiveBidding(id),
+                  'Live bidding enabled. You can set up teams/players and start the auction.',
+                )
+              }
+            >
+              Enable live bidding
+            </Button>
+          )}
+        </Alert>
       )}
       {auction.status === 'CANCELLED' && (
         <Alert variant="danger">Cancelled{auction.cancel_reason ? `: ${auction.cancel_reason}` : '.'}</Alert>
+      )}
+      {startBlocked && blockingLive && (
+        <Alert variant="warning">
+          Only one auction can be live at a time. Finish{' '}
+          <Link to={auctionPath(blockingLive.auction_id)} className="alert-link">
+            {blockingLive.title}
+          </Link>{' '}
+          ({blockingLive.status.toLowerCase()}) before starting this one.
+        </Alert>
       )}
       {error && <Alert variant="warning">Could not refresh: {error}</Alert>}
 

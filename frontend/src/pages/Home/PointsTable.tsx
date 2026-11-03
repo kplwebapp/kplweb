@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Container, Card, Table, Form, Spinner } from 'react-bootstrap'
+import TeamBadge from '@/components/tournament/TeamBadge'
 import { statsApi, type PointsTableRow, type Season } from '@/services/api/publicApi'
 import { pickDefaultSeason } from '@/utils/season'
 import './PointsTable.scss'
@@ -102,7 +103,12 @@ export default function PointsTable() {
                       <tbody>
                         {standings.map((row) => (
                           <tr key={row.points_table_id}>
-                            <td>{row.team_name}</td>
+                            <td>
+                              <div className="d-flex align-items-center gap-2">
+                                <TeamBadge name={row.team_name} size={36} />
+                                <span className="fw-semibold">{row.team_name}</span>
+                              </div>
+                            </td>
                             <td>{row.matches_played}</td>
                             <td>{row.matches_won}</td>
                             <td><strong>{row.points}</strong></td>
