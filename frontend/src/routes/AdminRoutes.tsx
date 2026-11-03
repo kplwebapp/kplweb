@@ -22,6 +22,7 @@ import AuctionsPage from '@/admin/pages/Auctions'
 import LiveDeskPage from '@/admin/pages/Auctions/LiveDesk'
 import AuctionManagePage from '@/admin/pages/AuctionManage'
 import MembersPage from '@/admin/pages/Members'
+import RolesPage from '@/admin/pages/Roles'
 
 const redirectToDashboard = <Navigate to={ADMIN_BASE} replace />
 
@@ -60,6 +61,7 @@ export default function AdminRoutes() {
           <Route path="sponsors" element={<SponsorsPage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="members" element={<MembersPage />} />
+          <Route path="roles" element={<RolesPage />} />
 
           {/* KPL league pages: no longer in the menu, still reachable by URL */}
           <Route path="matches" element={<MatchesPage />} />
@@ -71,7 +73,6 @@ export default function AdminRoutes() {
           <Route path="contact" element={redirectToDashboard} />
           <Route path="statistics" element={redirectToDashboard} />
           <Route path="users" element={redirectToDashboard} />
-          <Route path="roles" element={redirectToDashboard} />
           <Route path="reports" element={redirectToDashboard} />
           <Route path="settings" element={redirectToDashboard} />
         </Route>

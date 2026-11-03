@@ -2,6 +2,7 @@ const ApiError = require('../../utils/ApiError');
 const { toPublicPath, removeUploadedFile } = require('../../utils/uploadFiles');
 const repo = require('./tournamentDetails.repository');
 const { buildPointsTable } = require('./pointsTable');
+const { normaliseSport, normaliseSportScores, formatMatchScore } = require('./scoreFormats');
 const { parseYoutubeId, youtubeWatchUrl } = require('./youtube');
 
 const notFound = (what = 'Tournament') => new ApiError(404, `${what} not found`);
@@ -15,16 +16,26 @@ const ensureTournament = async (id) => {
   return record;
 };
 
-/** Completed matches need a result; scheduled/no-result matches never have one. */
-const normaliseMatch = (data) => {
-  const match = { ...data };
+const withScoreLabel = (match, sportSlug) => ({
+  ...match,
+  score: formatMatchScore(match, sportSlug),
+});
+
+/** Completed matches need a result; scheduled/live/no-result matches never have one. */
+const normaliseMatch = (data, sportSlug) => {
+  let match = { ...data };
   if (match.status === 'COMPLETED') {
     if (!match.result) throw new ApiError(400, 'Choose the result for a completed match.');
   } else {
     match.result = null;
   }
+  match = normaliseSportScores(sportSlug, match);
   return match;
 };
+
+const pointsOptionsFor = (sportSlug) => ({
+  includeNrr: normaliseSport(sportSlug) === 'cricket',
+});
 
 const ensureTeamsInTournament = async (eventId, match) => {
   const teamIds = new Set((await repo.findTeams(eventId)).map((t) => t.team_id));
@@ -40,14 +51,23 @@ const splitMedia = (media) => ({
 
 const tournamentDetailsService = {
   getPublicDetails: async (slug) => {
-    const eventId = await repo.findPublicTournamentIdBySlug(slug);
-    if (!eventId) throw notFound();
+    const tournament = await repo.findPublicTournamentBySlug(slug);
+    if (!tournament) throw notFound();
+    const eventId = tournament.event_id;
+    const sport = tournament.category_slug;
     const [teams, matches, media] = await Promise.all([
       repo.findTeams(eventId),
       repo.findMatches(eventId),
       repo.findMedia(eventId),
     ]);
-    return { teams, points_table: buildPointsTable(teams, matches), ...splitMedia(media) };
+    return {
+      category_slug: sport,
+      category_name: tournament.category_name,
+      teams,
+      matches: matches.map((m) => withScoreLabel(m, sport)),
+      points_table: buildPointsTable(teams, matches, pointsOptionsFor(sport)),
+      ...splitMedia(media),
+    };
   },
 
   // ---------- teams ----------
@@ -78,24 +98,26 @@ const tournamentDetailsService = {
 
   // ---------- matches & points ----------
   listMatches: async (eventId) => {
-    await ensureTournament(eventId);
-    return repo.findMatches(eventId);
+    const tournament = await ensureTournament(eventId);
+    const matches = await repo.findMatches(eventId);
+    return matches.map((m) => withScoreLabel(m, tournament.category_slug));
   },
 
   createMatch: async (eventId, data) => {
-    await ensureTournament(eventId);
-    const match = normaliseMatch(data);
+    const tournament = await ensureTournament(eventId);
+    const match = normaliseMatch(data, tournament.category_slug);
     await ensureTeamsInTournament(eventId, match);
-    return repo.createMatch(eventId, match);
+    const created = await repo.createMatch(eventId, match);
+    return withScoreLabel(created, tournament.category_slug);
   },
 
   updateMatch: async (eventId, matchId, data) => {
-    await ensureTournament(eventId);
-    const match = normaliseMatch(data);
+    const tournament = await ensureTournament(eventId);
+    const match = normaliseMatch(data, tournament.category_slug);
     await ensureTeamsInTournament(eventId, match);
     const updated = await repo.updateMatch(eventId, matchId, match);
     if (!updated) throw notFound('Match');
-    return updated;
+    return withScoreLabel(updated, tournament.category_slug);
   },
 
   removeMatch: async (eventId, matchId) => {
@@ -104,9 +126,9 @@ const tournamentDetailsService = {
   },
 
   getPointsTable: async (eventId) => {
-    await ensureTournament(eventId);
+    const tournament = await ensureTournament(eventId);
     const [teams, matches] = await Promise.all([repo.findTeams(eventId), repo.findMatches(eventId)]);
-    return buildPointsTable(teams, matches);
+    return buildPointsTable(teams, matches, pointsOptionsFor(tournament.category_slug));
   },
 
   // ---------- media ----------

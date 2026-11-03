@@ -25,8 +25,7 @@ export default function Header({ navigate, isDark }: Props) {
   }
 
   const handleLogout = () => {
-    logout()
-    go('/logout')
+    void logout().finally(() => go('/logout'))
   }
 
   return (

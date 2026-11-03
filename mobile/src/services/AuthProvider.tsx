@@ -97,6 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    const tokens = await authStorage.getTokens()
+    if (tokens.accessToken) {
+      try {
+        await authApi.logout(tokens.accessToken)
+      } catch {
+        /* still clear local session */
+      }
+    }
     await authStorage.clearTokens()
     await authStorage.clearWelcomeSeen()
     setAccessToken(null)

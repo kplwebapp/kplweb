@@ -5,25 +5,67 @@ const env = require('../../config/env');
 const ApiError = require('../../utils/ApiError');
 const logger = require('../../utils/logger');
 const authRepository = require('./auth.repository');
+const loginSessionsRepository = require('./loginSessions.repository');
 const changeRepository = require('../profile/profile.change.repository');
 const pool = require('../../config/database');
 
 const digitsOnly = (value) => String(value || '').replace(/\D/g, '');
 const generateOtp = () => String(crypto.randomInt(100000, 999999));
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
-const signTokens = (userId) => {
-  const accessToken = jwt.sign({ sub: userId }, env.jwt.secret, { expiresIn: env.jwt.expiresIn });
-  const refreshToken = jwt.sign({ sub: userId, type: 'refresh' }, env.jwt.refreshSecret, {
+const parseDurationMs = (value) => {
+  const match = /^(\d+)\s*([smhd])$/i.exec(String(value || '').trim());
+  if (!match) return 30 * 24 * 60 * 60 * 1000;
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const mult = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[unit];
+  return amount * mult;
+};
+
+const signTokens = (userId, sessionId) => {
+  const accessToken = jwt.sign({ sub: userId, sid: sessionId }, env.jwt.secret, {
+    expiresIn: env.jwt.expiresIn,
+  });
+  const refreshToken = jwt.sign({ sub: userId, sid: sessionId, type: 'refresh' }, env.jwt.refreshSecret, {
     expiresIn: env.jwt.refreshExpiresIn,
   });
   return { accessToken, refreshToken };
+};
+
+const issueSession = async (userId, meta = {}) => {
+  const sessionId = crypto.randomUUID();
+  const tokens = signTokens(userId, sessionId);
+  const expiresAt = new Date(Date.now() + parseDurationMs(env.jwt.refreshExpiresIn));
+  await loginSessionsRepository.create({
+    sessionId,
+    userId,
+    refreshTokenHash: hashToken(tokens.refreshToken),
+    clientType: meta.clientType || 'web',
+    ipAddress: meta.ipAddress || null,
+    userAgent: meta.userAgent || null,
+    expiresAt,
+  });
+  return tokens;
 };
 
 const getUserWithRoles = async (userId) => {
   const { rows } = await pool.query(
     `SELECT u.user_id, u.first_name, u.middle_name, u.last_name, u.full_name, u.email,
             u.mobile, u.dob, u.vibhaag, u.blood_group, u.profile_photo, u.created_at,
-            COALESCE(json_agg(DISTINCT r.role_code) FILTER (WHERE r.role_code IS NOT NULL), '[]') AS roles
+            COALESCE(json_agg(DISTINCT r.role_code) FILTER (WHERE r.role_code IS NOT NULL), '[]') AS roles,
+            COALESCE(
+              (
+                SELECT json_agg(permission_code ORDER BY permission_code)
+                FROM (
+                  SELECT DISTINCT p.permission_code
+                  FROM user_roles ur2
+                  JOIN role_permissions rp ON rp.role_id = ur2.role_id
+                  JOIN permissions p ON p.permission_id = rp.permission_id
+                  WHERE ur2.user_id = u.user_id
+                ) perms
+              ),
+              '[]'
+            ) AS permissions
      FROM users u
      LEFT JOIN user_roles ur ON ur.user_id = u.user_id
      LEFT JOIN roles r ON r.role_id = ur.role_id
@@ -37,6 +79,7 @@ const getUserWithRoles = async (userId) => {
     ...row,
     date_of_birth: row.dob,
     profile_photo_url: row.profile_photo,
+    permissions: row.permissions || [],
   };
 };
 
@@ -101,7 +144,7 @@ const register = async (body) => {
   };
 };
 
-const login = async ({ email, password }) => {
+const login = async ({ email, password }, meta = {}) => {
   const user = await authRepository.findByEmail(email);
   if (!user) {
     throw new ApiError(401, 'Invalid email or password');
@@ -117,34 +160,102 @@ const login = async ({ email, password }) => {
     );
   }
 
-  const tokens = signTokens(user.user_id);
+  const tokens = await issueSession(user.user_id, { ...meta, clientType: meta.clientType || 'web' });
   const fullUser = await getUserWithRoles(user.user_id);
 
   return { user: fullUser, ...tokens };
 };
 
-const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TEAM_MANAGER', 'SCORER'];
+/** Accounts with admin:access (or Super Admin) may open the admin panel. */
+const adminLogin = async ({ email, password }, meta = {}) => {
+  const user = await authRepository.findByEmail(email);
+  if (!user) throw new ApiError(401, 'Invalid email or password');
 
-/** Same credentials check as `login`, but only accounts with a staff role may open the admin panel. */
-const adminLogin = async (credentials) => {
-  const result = await login(credentials);
-  if (!result.user.roles.some((role) => STAFF_ROLES.includes(role))) {
+  const valid = await bcrypt.compare(password, user.password_hash);
+  if (!valid) throw new ApiError(401, 'Invalid email or password');
+
+  if (!user.is_active) {
+    throw new ApiError(
+      403,
+      'Your account is pending approval. Please wait for an administrator to approve your registration.'
+    );
+  }
+
+  const fullUser = await getUserWithRoles(user.user_id);
+  const canAccessAdmin =
+    fullUser.roles.includes('SUPER_ADMIN') ||
+    (fullUser.permissions || []).includes('admin:access');
+  if (!canAccessAdmin) {
     throw new ApiError(403, 'This account does not have access to the admin panel.');
   }
-  return result;
+
+  const tokens = await issueSession(user.user_id, { ...meta, clientType: 'admin' });
+  return { user: fullUser, ...tokens };
 };
 
 const refresh = async (refreshToken) => {
+  let payload;
   try {
-    const payload = jwt.verify(refreshToken, env.jwt.refreshSecret);
-    if (payload.type !== 'refresh') throw new ApiError(401, 'Invalid refresh token');
-    return signTokens(payload.sub);
+    payload = jwt.verify(refreshToken, env.jwt.refreshSecret);
   } catch {
     throw new ApiError(401, 'Invalid or expired refresh token');
   }
+
+  if (payload.type !== 'refresh' || !payload.sid || !payload.sub) {
+    throw new ApiError(401, 'Invalid refresh token');
+  }
+
+  const session = await loginSessionsRepository.findActiveById(payload.sid);
+  if (!session || Number(session.user_id) !== Number(payload.sub)) {
+    throw new ApiError(401, 'Session expired. Please sign in again.');
+  }
+
+  if (session.refresh_token_hash !== hashToken(refreshToken)) {
+    await loginSessionsRepository.revoke(payload.sid);
+    throw new ApiError(401, 'Refresh token reuse detected. Please sign in again.');
+  }
+
+  const tokens = signTokens(payload.sub, payload.sid);
+  const expiresAt = new Date(Date.now() + parseDurationMs(env.jwt.refreshExpiresIn));
+  await loginSessionsRepository.rotateRefresh(payload.sid, hashToken(tokens.refreshToken), expiresAt);
+  return tokens;
 };
 
 const me = async (userId) => getUserWithRoles(userId);
+
+const listSessions = async (userId, currentSessionId) => {
+  const rows = await loginSessionsRepository.listActiveForUser(userId);
+  return rows.map((row) => ({
+    session_id: row.session_id,
+    client_type: row.client_type,
+    ip_address: row.ip_address,
+    user_agent: row.user_agent,
+    created_at: row.created_at,
+    last_seen_at: row.last_seen_at,
+    expires_at: row.expires_at,
+    is_current: row.session_id === currentSessionId,
+  }));
+};
+
+const logout = async (sessionId) => {
+  if (!sessionId) return { revoked: false };
+  const row = await loginSessionsRepository.revoke(sessionId);
+  return { revoked: Boolean(row) };
+};
+
+const revokeSession = async (userId, sessionId) => {
+  const row = await loginSessionsRepository.revoke(sessionId, userId);
+  if (!row) throw new ApiError(404, 'Session not found');
+  return { revoked: true };
+};
+
+const logoutAll = async (userId, currentSessionId, { keepCurrent = false } = {}) => {
+  const count = await loginSessionsRepository.revokeAllForUser(
+    userId,
+    keepCurrent ? currentSessionId : null
+  );
+  return { revoked: count };
+};
 
 /** Temporary mobile allowlist for app testing (must match mobile ALLOWED_LOGIN_MOBILES). */
 const DEV_LOGIN_MOBILES = new Set(['9726101600']);
@@ -243,7 +354,7 @@ const requestMobileOtp = async ({ mobile }) => {
   return payload;
 };
 
-const verifyMobileOtp = async ({ mobile, otp }) => {
+const verifyMobileOtp = async ({ mobile, otp }, meta = {}) => {
   const digits = digitsOnly(mobile);
   let user = await authRepository.findByMobileDigits(digits);
   if (!user && isDevLoginMobile(digits)) {
@@ -274,7 +385,7 @@ const verifyMobileOtp = async ({ mobile, otp }) => {
   }
 
   await changeRepository.markOtpVerified(verification.verification_id);
-  const tokens = signTokens(user.user_id);
+  const tokens = await issueSession(user.user_id, { ...meta, clientType: 'mobile' });
   const fullUser = await getUserWithRoles(user.user_id);
   return { user: fullUser, ...tokens };
 };
@@ -285,6 +396,10 @@ module.exports = {
   adminLogin,
   refresh,
   me,
+  listSessions,
+  logout,
+  revokeSession,
+  logoutAll,
   requestMobileOtp,
   verifyMobileOtp,
 };

@@ -25,6 +25,7 @@ import {
 import { VIBHAAG_OPTIONS } from '@/constants/profileOptions'
 import AppToast from '@/components/common/AppToast'
 import CricketSkillsCard from './CricketSkillsCard'
+import LoginSessionsCard from './LoginSessionsCard'
 import './Profile.scss'
 
 const ALLOWED_PROFILE_PHOTO_TYPES = ['image/jpeg', 'image/png'] as const
@@ -357,6 +358,7 @@ export default function Profile() {
       </Card>
 
       <CricketSkillsCard />
+      <LoginSessionsCard />
 
       <Modal size='lg' show={showEditModal} onHide={closeEditModal} centered>
         <Modal.Header closeButton>

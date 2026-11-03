@@ -8,6 +8,7 @@ export type AuthUser = {
   last_name?: string;
   profile_photo_url?: string | null;
   roles: string[];
+  permissions?: string[];
 };
 
 export type AuthResponse = {
@@ -17,6 +18,17 @@ export type AuthResponse = {
     accessToken: string;
     refreshToken: string;
   };
+};
+
+export type LoginSession = {
+  session_id: string;
+  client_type: 'web' | 'admin' | 'mobile' | string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  last_seen_at: string;
+  expires_at: string;
+  is_current: boolean;
 };
 
 export const authApi = {
@@ -40,4 +52,19 @@ export const authApi = {
   }) => apiClient.post<AuthResponse>('/auth/register', payload),
 
   me: () => apiClient.get<{ data: AuthUser }>('/auth/me'),
+
+  refresh: (refreshToken: string) =>
+    apiClient.post<{ data: { accessToken: string; refreshToken: string } }>('/auth/refresh', {
+      refreshToken,
+    }),
+
+  listSessions: () => apiClient.get<{ data: LoginSession[] }>('/auth/sessions'),
+
+  logout: () => apiClient.post<{ data: { revoked: boolean } }>('/auth/logout', {}),
+
+  logoutAll: (keepCurrent = true) =>
+    apiClient.post<{ data: { revoked: number } }>('/auth/logout-all', { keepCurrent }),
+
+  revokeSession: (sessionId: string) =>
+    apiClient.delete<{ data: { revoked: boolean } }>(`/auth/sessions/${sessionId}`),
 };

@@ -2,17 +2,22 @@ import { useCallback, useState } from 'react'
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap'
 import { useReloadable } from '@/admin/hooks/useReloadable'
 import { STAGE_LABELS, tournamentAdminApi, type TournamentMatch } from '@/services/api/tournamentApi'
-import { formatEventDateRange } from '@/utils/eventDate'
 import MatchFormModal from './MatchFormModal'
-import { inningsText, matchResultText } from './matchText'
+import { matchResultText, matchScoreLine, matchWhen } from './matchText'
 
 const STATUS_BADGE: Record<TournamentMatch['status'], string> = {
   SCHEDULED: 'primary',
+  LIVE: 'danger',
   COMPLETED: 'success',
   NO_RESULT: 'secondary',
 }
 
-export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
+type Props = {
+  tournamentId: number
+  categorySlug?: string | null
+}
+
+export default function MatchesTab({ tournamentId, categorySlug }: Props) {
   const load = useCallback(
     () =>
       Promise.all([tournamentAdminApi.listMatches(tournamentId), tournamentAdminApi.listTeams(tournamentId)]).then(
@@ -39,12 +44,13 @@ export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
   }
 
   const canAdd = data.teams.length >= 2
+  const sportLabel = categorySlug ? categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1) : 'Tournament'
 
   return (
     <>
       <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
         <p className="text-muted mb-0">
-          Record each match and its result. The points table is calculated from completed league matches.
+          Schedule {sportLabel.toLowerCase()} matches and enter scores. League results update the points table.
         </p>
         <Button size="sm" disabled={!canAdd} onClick={() => setModal({ editing: null })}>Add Match</Button>
       </div>
@@ -55,7 +61,7 @@ export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
       <Table responsive hover className="bg-white shadow-sm align-middle">
         <thead className="table-light">
           <tr>
-            <th>Date</th>
+            <th>When</th>
             <th>Stage</th>
             <th>Match</th>
             <th>Result</th>
@@ -65,21 +71,21 @@ export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
         <tbody>
           {data.matches.length === 0 ? (
             <tr>
-              <td colSpan={5} className="text-center text-muted py-4">No matches recorded yet.</td>
+              <td colSpan={5} className="text-center text-muted py-4">No matches scheduled yet.</td>
             </tr>
           ) : (
             data.matches.map((m) => {
-              const score1 = inningsText(m.team1_runs, m.team1_wickets, m.team1_overs)
-              const score2 = inningsText(m.team2_runs, m.team2_wickets, m.team2_overs)
+              const scoreLine = matchScoreLine(m)
               return (
                 <tr key={m.match_id}>
-                  <td className="text-nowrap">{formatEventDateRange(m.match_date, null) || 'TBA'}</td>
+                  <td className="text-nowrap">
+                    <div>{matchWhen(m)}</div>
+                    {m.venue && <small className="text-muted">{m.venue}</small>}
+                  </td>
                   <td>{STAGE_LABELS[m.stage]}</td>
                   <td>
                     <div className="fw-semibold">{m.team1_name} vs {m.team2_name}</div>
-                    {(score1 || score2) && (
-                      <small className="text-muted">{score1 || '—'} · {score2 || '—'}</small>
-                    )}
+                    {scoreLine && <small className="text-muted">{scoreLine}</small>}
                   </td>
                   <td>
                     <Badge bg={STATUS_BADGE[m.status]} className="me-2">{matchResultText(m)}</Badge>
@@ -88,7 +94,7 @@ export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
                   <td className="text-end">
                     <div className="d-inline-flex gap-2">
                       <Button size="sm" variant="outline-primary" onClick={() => setModal({ editing: m })}>Edit</Button>
-                      <Button size="sm" variant="outline-danger" onClick={() => handleDelete(m)}>Delete</Button>
+                      <Button size="sm" variant="outline-danger" onClick={() => void handleDelete(m)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
@@ -102,6 +108,7 @@ export default function MatchesTab({ tournamentId }: { tournamentId: number }) {
         <MatchFormModal
           key={modal.editing?.match_id ?? 'new'}
           tournamentId={tournamentId}
+          categorySlug={categorySlug}
           teams={data.teams}
           editing={modal.editing}
           onClose={() => setModal(null)}

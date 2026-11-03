@@ -5,23 +5,21 @@ import { useSidebarState } from '@/admin/hooks/useSidebarState'
 import logo from '@/assets/img-logo-white.png'
 import {
   ADMIN_BASE,
-  AUCTION_ROLES,
   KIND_LABELS,
-  auctionsItem,
+  auctionNavGroup,
   categoryIcon,
   categoryPath,
   contentGroup,
   dashboardItem,
-  liveAuctionItem,
   manageCategoriesPath,
   playersPath,
-  teamsItem,
+  rolesNavItem,
 } from '@/admin/config/sidebar'
 import { readIsSuperAdmin, type AdminContext } from '@/admin/context'
 import { adminActivitiesApi, type ActivityKind, type Category } from '@/services/api/activitiesApi'
 import { UNAUTHORIZED_EVENT } from '@/services/api/client'
 import { authApi, type AuthUser } from '@/services/api/authApi'
-import { ADMIN_SESSION_KEYS, adminSession, isStaff, roleLabel } from '@/utils/adminSession'
+import { ADMIN_SESSION_KEYS, adminSession, hasPermission, isStaff, roleLabel } from '@/utils/adminSession'
 import BackToTop from '@/components/common/BackToTop'
 
 type NavItem = { label: string; path: string; icon: string }
@@ -141,7 +139,7 @@ export default function DashboardLayout() {
       .me()
       .then((res) => {
         if (cancelled) return
-        if (!isStaff(res.data.roles)) {
+        if (!isStaff(res.data)) {
           adminSession.clear()
           window.location.href = `${ADMIN_BASE}/login?expired=1`
           return
@@ -177,27 +175,58 @@ export default function DashboardLayout() {
   )
 
   const activeOf = (kind: ActivityKind) => categories[kind].filter((c) => c.is_active)
-  const canAuction = Boolean(user?.roles.some((role) => AUCTION_ROLES.includes(role)))
+  const canSeeTournaments = hasPermission(user, 'tournaments:read')
+  const canSeeEvents = hasPermission(user, 'events:read')
+  const canSeePlayers = hasPermission(user, 'players:read')
+  const canSeeAuctions = hasPermission(user, 'auctions:read')
+  const canManageAuctions = hasPermission(user, 'auctions:manage')
+  const canOperateAuctions = hasPermission(user, 'auctions:operate')
+
+  const tournamentItems: NavItem[] = [
+    ...(canSeeTournaments
+      ? [{ label: 'Tournament Categories', path: manageCategoriesPath('TOURNAMENT'), icon: '⚙️' }]
+      : []),
+    ...activeOf('TOURNAMENT')
+      .filter((c) => c.slug === 'cricket' && canSeeTournaments)
+      .map((c) => ({
+        label: c.name,
+        path: categoryPath('TOURNAMENT', c.slug),
+        icon: categoryIcon('TOURNAMENT', c.slug),
+      })),
+  ]
+
+  const auctionItems: NavItem[] = [
+    ...(canManageAuctions || canSeeAuctions ? [auctionNavGroup.items[0]] : []),
+    ...(canOperateAuctions || canSeeAuctions ? [auctionNavGroup.items[1]] : []),
+  ].filter((item, index, list) => list.findIndex((x) => x.path === item.path) === index)
 
   const kindGroup = (kind: ActivityKind): NavItem[] => [
     ...activeOf(kind).map((c) => ({ label: c.name, path: categoryPath(kind, c.slug), icon: categoryIcon(kind, c.slug) })),
-    ...(kind === 'TOURNAMENT'
-      ? [teamsItem, ...(canAuction ? [liveAuctionItem, auctionsItem] : [])]
-      : []),
     { label: 'Manage categories', path: manageCategoriesPath(kind), icon: '⚙️' },
   ]
 
-  const playerItems: NavItem[] = activeOf('TOURNAMENT').map((c) => ({
-    label: c.name,
-    path: playersPath(c.slug),
-    icon: categoryIcon('TOURNAMENT', c.slug),
-  }))
+  const playerItems: NavItem[] = canSeePlayers
+    ? activeOf('TOURNAMENT').map((c) => ({
+        label: c.name,
+        path: playersPath(c.slug),
+        icon: categoryIcon('TOURNAMENT', c.slug),
+      }))
+    : []
+
+  const contentItems = contentGroup.items.filter((item) =>
+    !('permission' in item) || !item.permission || hasPermission(user, item.permission),
+  )
 
   const { isMobile, collapsed, drawerOpen, toggle, closeDrawer } = useSidebarState()
 
   const handleLogout = () => {
-    adminSession.clear()
-    window.location.href = `${ADMIN_BASE}/login`
+    void authApi
+      .logout()
+      .catch(() => {})
+      .finally(() => {
+        adminSession.clear()
+        window.location.href = `${ADMIN_BASE}/login`
+      })
   }
 
   // Picking a link in the mobile drawer closes it.
@@ -243,10 +272,22 @@ export default function DashboardLayout() {
           <div className="mb-2">
             <SideLink item={dashboardItem} collapsed={collapsed} end />
           </div>
-          <NavGroup title={KIND_LABELS.TOURNAMENT.plural} items={kindGroup('TOURNAMENT')} collapsed={collapsed} />
-          <NavGroup title={KIND_LABELS.EVENT.plural} items={kindGroup('EVENT')} collapsed={collapsed} />
+          {tournamentItems.length > 0 && (
+            <NavGroup title={KIND_LABELS.TOURNAMENT.plural} items={tournamentItems} collapsed={collapsed} />
+          )}
+          {auctionItems.length > 0 && (
+            <NavGroup title={auctionNavGroup.title} items={auctionItems} collapsed={collapsed} />
+          )}
+          {canSeeEvents && (
+            <NavGroup title={KIND_LABELS.EVENT.plural} items={kindGroup('EVENT')} collapsed={collapsed} />
+          )}
           {playerItems.length > 0 && <NavGroup title="Players" items={playerItems} collapsed={collapsed} />}
-          <NavGroup title={contentGroup.title} items={contentGroup.items} collapsed={collapsed} />
+          {contentItems.length > 0 && (
+            <NavGroup title={contentGroup.title} items={contentItems} collapsed={collapsed} />
+          )}
+          {isSuperAdmin && (
+            <NavGroup title="System" items={[rolesNavItem]} collapsed={collapsed} />
+          )}
         </nav>
 
         <SideTip label="Log out" show={collapsed}>

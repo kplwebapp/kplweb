@@ -3,34 +3,50 @@ const pool = require('../../config/database');
 const MATCH_SELECT = `SELECT m.match_id, m.event_id, m.team1_id, m.team2_id,
     t1.team_name AS team1_name, t2.team_name AS team2_name,
     to_char(m.match_date, 'YYYY-MM-DD') AS match_date,
-    m.stage, m.status, m.result,
+    to_char(m.match_time, 'HH24:MI') AS match_time,
+    m.venue, m.stage, m.status, m.result,
     m.team1_runs, m.team1_wickets, m.team1_overs::float AS team1_overs,
     m.team2_runs, m.team2_wickets, m.team2_overs::float AS team2_overs,
-    m.summary
+    m.score_data, m.summary
   FROM tournament_matches m
   JOIN teams t1 ON t1.team_id = m.team1_id
   JOIN teams t2 ON t2.team_id = m.team2_id`;
 
 const MATCH_FIELDS = [
-  'team1_id', 'team2_id', 'match_date', 'stage', 'status', 'result',
+  'team1_id', 'team2_id', 'match_date', 'match_time', 'venue', 'stage', 'status', 'result',
   'team1_runs', 'team1_wickets', 'team1_overs',
-  'team2_runs', 'team2_wickets', 'team2_overs', 'summary',
+  'team2_runs', 'team2_wickets', 'team2_overs', 'score_data', 'summary',
 ];
 
-const matchValues = (data) => MATCH_FIELDS.map((field) => data[field] ?? null);
+const matchValues = (data) =>
+  MATCH_FIELDS.map((field) => {
+    if (field === 'score_data') {
+      return data.score_data == null ? null : data.score_data;
+    }
+    return data[field] ?? null;
+  });
 
 const tournamentDetailsRepository = {
   findTournament: async (id) => {
-    const { rows } = await pool.query('SELECT event_id, kind, category_id FROM events WHERE event_id = $1', [id]);
+    const { rows } = await pool.query(
+      `SELECT e.event_id, e.kind, e.category_id, c.slug AS category_slug, c.name AS category_name
+       FROM events e
+       LEFT JOIN activity_categories c ON c.category_id = e.category_id
+       WHERE e.event_id = $1`,
+      [id]
+    );
     return rows[0] || null;
   },
 
-  findPublicTournamentIdBySlug: async (slug) => {
+  findPublicTournamentBySlug: async (slug) => {
     const { rows } = await pool.query(
-      `SELECT event_id FROM events WHERE slug = $1 AND kind = 'TOURNAMENT' AND is_archived = FALSE`,
+      `SELECT e.event_id, e.category_id, c.slug AS category_slug, c.name AS category_name
+       FROM events e
+       LEFT JOIN activity_categories c ON c.category_id = e.category_id
+       WHERE e.slug = $1 AND e.kind = 'TOURNAMENT' AND e.is_archived = FALSE`,
       [slug]
     );
-    return rows[0]?.event_id || null;
+    return rows[0] || null;
   },
 
   // ---------- teams ----------
@@ -81,7 +97,7 @@ const tournamentDetailsRepository = {
   findMatches: async (eventId) => {
     const { rows } = await pool.query(
       `${MATCH_SELECT} WHERE m.event_id = $1
-       ORDER BY m.match_date DESC NULLS LAST, m.match_id DESC`,
+       ORDER BY m.match_date ASC NULLS LAST, m.match_time ASC NULLS LAST, m.match_id ASC`,
       [eventId]
     );
     return rows;

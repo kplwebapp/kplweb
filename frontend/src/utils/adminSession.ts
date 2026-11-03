@@ -20,10 +20,25 @@ const ROLE_LABELS: Record<string, string> = {
   VIEWER: 'Viewer',
 }
 
-const STAFF_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'TEAM_MANAGER', 'SCORER'])
+/** True when the account may use the admin panel (Super Admin or admin:access). */
+export const isStaff = (user: AuthUser | { roles?: string[]; permissions?: string[] } | null | undefined) => {
+  if (!user) return false
+  if (user.roles?.includes('SUPER_ADMIN')) return true
+  if (user.permissions?.includes('admin:access')) return true
+  // Legacy sessions saved before permissions were included on the user object.
+  const legacyStaff = new Set(['SUPER_ADMIN', 'ADMIN', 'TEAM_MANAGER', 'SCORER'])
+  return Boolean(user.roles?.some((role) => legacyStaff.has(role)))
+}
 
-/** Roles allowed into the admin panel (the backend enforces the same list at sign-in). */
-export const isStaff = (roles: string[] | undefined) => Boolean(roles?.some((role) => STAFF_ROLES.has(role)))
+export const hasPermission = (
+  user: AuthUser | { roles?: string[]; permissions?: string[] } | null | undefined,
+  ...codes: string[]
+) => {
+  if (!user) return false
+  if (user.roles?.includes('SUPER_ADMIN')) return true
+  const perms = user.permissions || []
+  return codes.some((code) => perms.includes(code))
+}
 
 export const roleLabel = (code: string) =>
   ROLE_LABELS[code] ?? code.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())

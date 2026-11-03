@@ -63,7 +63,7 @@ export default function TournamentRegister() {
 
   useEffect(() => {
     const expired = () => {
-      logout()
+      void logout()
       navigate(loginPathFor(location.pathname), { replace: true })
     }
     window.addEventListener(UNAUTHORIZED_EVENT, expired)

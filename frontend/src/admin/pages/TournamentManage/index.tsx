@@ -98,7 +98,9 @@ export default function TournamentManagePage() {
           categorySlug={tournament.category_slug}
         />
       )}
-      {tab === 'matches' && <MatchesTab tournamentId={id} />}
+      {tab === 'matches' && (
+        <MatchesTab tournamentId={id} categorySlug={tournament.category_slug} />
+      )}
       {tab === 'points' && <PointsTab tournamentId={id} />}
       {tab === 'gallery' && <GalleryTab tournamentId={id} />}
     </AdminSection>

@@ -15,10 +15,10 @@ const round3 = (value) => Math.round(value * 1000) / 1000;
 
 /**
  * Builds the standings from league-stage results.
- * Win 2, tie/no result 1, loss 0. Net run rate uses the overs entered for each innings,
- * so an all-out innings must be entered as the full quota of overs.
+ * Win 2, tie/no result 1, loss 0. Net run rate (cricket only) uses the overs entered
+ * for each innings, so an all-out innings must be entered as the full quota of overs.
  */
-const buildPointsTable = (teams, matches) => {
+const buildPointsTable = (teams, matches, { includeNrr = true } = {}) => {
   const rows = new Map(
     teams.map((t) => [
       t.team_id,
@@ -42,7 +42,7 @@ const buildPointsTable = (teams, matches) => {
   );
 
   for (const m of matches) {
-    if (m.stage !== 'LEAGUE' || m.status === 'SCHEDULED') continue;
+    if (m.stage !== 'LEAGUE' || m.status === 'SCHEDULED' || m.status === 'LIVE') continue;
     const a = rows.get(m.team1_id);
     const b = rows.get(m.team2_id);
     if (!a || !b) continue;
@@ -71,7 +71,7 @@ const buildPointsTable = (teams, matches) => {
       loser.points += POINTS.LOSS;
     }
 
-    if (hasScores(m)) {
+    if (includeNrr && hasScores(m)) {
       const balls1 = oversToBalls(m.team1_overs);
       const balls2 = oversToBalls(m.team2_overs);
       a.runsFor += m.team1_runs;
@@ -88,7 +88,7 @@ const buildPointsTable = (teams, matches) => {
   const table = [...rows.values()].map(({ runsFor, ballsFaced, runsAgainst, ballsBowled, ...row }) => ({
     ...row,
     net_run_rate:
-      ballsFaced > 0 && ballsBowled > 0
+      includeNrr && ballsFaced > 0 && ballsBowled > 0
         ? round3(runsFor / (ballsFaced / 6) - runsAgainst / (ballsBowled / 6))
         : null,
   }));
@@ -96,7 +96,9 @@ const buildPointsTable = (teams, matches) => {
   table.sort(
     (x, y) =>
       y.points - x.points ||
-      (y.net_run_rate ?? -Infinity) - (x.net_run_rate ?? -Infinity) ||
+      (includeNrr
+        ? (y.net_run_rate ?? -Infinity) - (x.net_run_rate ?? -Infinity)
+        : 0) ||
       y.won - x.won ||
       x.team_name.localeCompare(y.team_name)
   );

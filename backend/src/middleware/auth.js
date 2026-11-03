@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const ApiError = require('../utils/ApiError');
 const pool = require('../config/database');
+const loginSessionsRepository = require('../modules/auth/loginSessions.repository');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -12,6 +13,15 @@ const authenticate = async (req, res, next) => {
 
     const token = header.slice(7);
     const payload = jwt.verify(token, env.jwt.secret);
+
+    if (!payload.sid) {
+      throw new ApiError(401, 'Session expired. Please sign in again.');
+    }
+
+    const session = await loginSessionsRepository.findActiveById(payload.sid);
+    if (!session || Number(session.user_id) !== Number(payload.sub)) {
+      throw new ApiError(401, 'Session expired. Please sign in again.');
+    }
 
     const { rows } = await pool.query(
       `SELECT u.user_id, u.email, u.first_name, u.last_name, u.full_name, u.is_active,
@@ -28,6 +38,8 @@ const authenticate = async (req, res, next) => {
       throw new ApiError(401, 'Invalid or inactive user');
     }
 
+    void loginSessionsRepository.touchLastSeen(payload.sid);
+
     req.user = {
       id: rows[0].user_id,
       email: rows[0].email,
@@ -35,6 +47,7 @@ const authenticate = async (req, res, next) => {
       lastName: rows[0].last_name,
       fullName: rows[0].full_name,
       roles: rows[0].roles,
+      sessionId: payload.sid,
     };
 
     next();

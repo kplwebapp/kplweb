@@ -1,18 +1,25 @@
 import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
-import type { AuthUser } from '../services/api/authApi';
+import { authApi, type AuthUser } from '../services/api/authApi';
 
 type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   login: (accessToken: string, refreshToken: string, user: AuthUser) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (user: AuthUser) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const clearLocalSession = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
+    if (!localStorage.getItem('accessToken')) return null;
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
@@ -24,10 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+  const logout = useCallback(async () => {
+    try {
+      if (localStorage.getItem('accessToken')) await authApi.logout();
+    } catch {
+      /* still clear local session */
+    }
+    clearLocalSession();
     setUser(null);
   }, []);
 
@@ -37,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isAuthenticated: !!user, login, logout, updateUser }),
+    () => ({ user, isAuthenticated: !!user && !!localStorage.getItem('accessToken'), login, logout, updateUser }),
     [user, login, logout, updateUser]
   );
 

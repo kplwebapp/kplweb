@@ -24,6 +24,15 @@ const addTeamsSchema = Joi.object({
   team_ids: Joi.array().items(id).min(1).max(50).required(),
 });
 
+const scoreDataSchema = Joi.object({
+  sport: Joi.string().valid('cricket', 'carrom', 'chess').required(),
+  team1_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+  team2_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+})
+  .empty(null)
+  .allow(null)
+  .default(null);
+
 const matchSchema = Joi.object({
   team1_id: id.required(),
   team2_id: id.required().invalid(Joi.ref('team1_id')).messages({ 'any.invalid': 'Choose two different teams' }),
@@ -33,8 +42,15 @@ const matchSchema = Joi.object({
     .allow(null)
     .default(null)
     .messages({ 'string.pattern.base': 'Match date must be in YYYY-MM-DD format' }),
+  match_time: Joi.string()
+    .pattern(/^\d{2}:\d{2}$/)
+    .empty('')
+    .allow(null)
+    .default(null)
+    .messages({ 'string.pattern.base': 'Match time must be in HH:MM format' }),
+  venue: Joi.string().trim().max(200).empty('').allow(null).default(null),
   stage: Joi.string().valid('LEAGUE', 'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL').default('LEAGUE'),
-  status: Joi.string().valid('SCHEDULED', 'COMPLETED', 'NO_RESULT').default('SCHEDULED'),
+  status: Joi.string().valid('SCHEDULED', 'LIVE', 'COMPLETED', 'NO_RESULT').default('SCHEDULED'),
   result: Joi.string().valid('TEAM1', 'TEAM2', 'TIE').empty('').allow(null).default(null),
   team1_runs: optionalInt(0, 9999),
   team1_wickets: optionalInt(0, 10),
@@ -42,6 +58,9 @@ const matchSchema = Joi.object({
   team2_runs: optionalInt(0, 9999),
   team2_wickets: optionalInt(0, 10),
   team2_overs: overs,
+  team1_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+  team2_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+  score_data: scoreDataSchema,
   summary: Joi.string().trim().max(300).empty('').allow(null).default(null),
 });
 

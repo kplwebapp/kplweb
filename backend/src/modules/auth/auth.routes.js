@@ -6,6 +6,7 @@ const {
   registerSchema,
   loginSchema,
   refreshSchema,
+  logoutAllSchema,
   mobileOtpRequestSchema,
   mobileOtpVerifySchema,
 } = require('./auth.validation');
@@ -20,5 +21,9 @@ router.post('/otp/request', authRateLimit, validate(mobileOtpRequestSchema), aut
 router.post('/otp/verify', authRateLimit, validate(mobileOtpVerifySchema), authController.verifyMobileOtp);
 router.post('/refresh', validate(refreshSchema), authController.refresh);
 router.get('/me', authenticate, authController.me);
+router.get('/sessions', authenticate, authController.listSessions);
+router.post('/logout', authenticate, authController.logout);
+router.post('/logout-all', authenticate, validate(logoutAllSchema), authController.logoutAll);
+router.delete('/sessions/:sessionId', authenticate, authController.revokeSession);
 
 module.exports = router;

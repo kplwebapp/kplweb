@@ -51,4 +51,7 @@ export const authApi = {
 
   refresh: (refreshToken: string) =>
     apiRequest<AuthTokens>('/auth/refresh', { method: 'POST', body: { refreshToken } }),
+
+  logout: (token: string) =>
+    apiRequest<{ revoked: boolean }>('/auth/logout', { method: 'POST', body: {}, token }),
 }

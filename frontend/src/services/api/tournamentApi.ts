@@ -18,13 +18,27 @@ export type TournamentTeam = Omit<Team, 'is_active' | 'category_id' | 'category_
 export type TeamInput = Pick<Team, 'team_name' | 'team_code' | 'short_name' | 'category_id'>;
 
 export type MatchStage = 'LEAGUE' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'FINAL';
-export type MatchStatus = 'SCHEDULED' | 'COMPLETED' | 'NO_RESULT';
+export type MatchStatus = 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'NO_RESULT';
 export type MatchResult = 'TEAM1' | 'TEAM2' | 'TIE';
+
+export type MatchScoreData = {
+  sport: 'cricket' | 'carrom' | 'chess';
+  team1_points: number | null;
+  team2_points: number | null;
+} | null;
+
+export type MatchScoreLabel = {
+  team1: string;
+  team2: string;
+  label: string;
+} | null;
 
 export interface MatchInput {
   team1_id: number;
   team2_id: number;
   match_date: string | null;
+  match_time: string | null;
+  venue: string | null;
   stage: MatchStage;
   status: MatchStatus;
   result: MatchResult | null;
@@ -34,6 +48,9 @@ export interface MatchInput {
   team2_runs: number | null;
   team2_wickets: number | null;
   team2_overs: number | null;
+  team1_points?: number | null;
+  team2_points?: number | null;
+  score_data?: MatchScoreData;
   summary: string | null;
 }
 
@@ -42,6 +59,7 @@ export interface TournamentMatch extends MatchInput {
   event_id: number;
   team1_name: string;
   team2_name: string;
+  score?: MatchScoreLabel;
 }
 
 export interface PointsRow {
@@ -74,7 +92,10 @@ export interface TournamentMedia {
 }
 
 export interface TournamentDetails extends TournamentMedia {
+  category_slug?: string | null;
+  category_name?: string | null;
   teams: TournamentTeam[];
+  matches: TournamentMatch[];
   points_table: PointsRow[];
 }
 

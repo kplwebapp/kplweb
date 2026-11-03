@@ -14,13 +14,26 @@ export const KIND_LABELS: Record<ActivityKind, { singular: string; plural: strin
 
 export const dashboardItem = { label: 'Dashboard', path: ADMIN_BASE, icon: '📊' }
 
-export const contentGroup = {
+export type SidebarItem = {
+  label: string
+  path: string
+  icon: string
+  permission?: string
+}
+
+export const contentGroup: { title: string; items: SidebarItem[] } = {
   title: 'Content & Members',
   items: [
-    { label: 'Sponsors', path: `${ADMIN_BASE}/sponsors`, icon: '🤝' },
-    { label: 'Gallery', path: `${ADMIN_BASE}/gallery`, icon: '🖼️' },
-    { label: 'Registered Members', path: `${ADMIN_BASE}/members`, icon: '✅' },
+    { label: 'Sponsors', path: `${ADMIN_BASE}/sponsors`, icon: '🤝', permission: 'sponsors:read' },
+    { label: 'Gallery', path: `${ADMIN_BASE}/gallery`, icon: '🖼️', permission: 'gallery:read' },
+    { label: 'Registered Members', path: `${ADMIN_BASE}/members`, icon: '✅', permission: 'users:read' },
   ],
+}
+
+export const rolesNavItem = {
+  label: 'Roles & access',
+  path: `${ADMIN_BASE}/roles`,
+  icon: '🔐',
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -40,7 +53,11 @@ export function categoryIcon(kind: ActivityKind, slug: string): string {
 
 export const teamsItem = { label: 'Teams', path: `${ADMIN_BASE}/teams`, icon: '👥' }
 export const auctionsItem = { label: 'Auctions', path: `${ADMIN_BASE}/auctions`, icon: '🔨' }
-export const liveAuctionItem = { label: 'Live auction', path: `${ADMIN_BASE}/auctions/live`, icon: '🔴' }
+export const liveAuctionItem = { label: 'Live Auctions', path: `${ADMIN_BASE}/auctions/live`, icon: '🔴' }
+export const auctionNavGroup = {
+  title: 'Auctions',
+  items: [auctionsItem, liveAuctionItem],
+}
 export const auctionPath = (id: number) => `${ADMIN_BASE}/auctions/${id}`
 export const liveAuctionPath = `${ADMIN_BASE}/auctions/live`
 /** Roles that hold the auction permissions by default; the API still checks each action. */

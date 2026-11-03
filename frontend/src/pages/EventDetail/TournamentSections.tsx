@@ -8,6 +8,7 @@ import { tournamentPublicApi, type MediaItem, type TournamentDetails } from '@/s
 import { getUploadUrl } from '@/utils/activityImage'
 import { daysUntil, formatEventDateRange } from '@/utils/eventDate'
 import { youtubeEmbedUrl, youtubeThumbnail } from '@/utils/youtube'
+import TournamentMatches from './TournamentMatches'
 
 type Props = {
   slug: string
@@ -18,7 +19,7 @@ type Props = {
 type Result = { slug: string; details: TournamentDetails }
 type GalleryTab = 'photos' | 'videos'
 
-const EMPTY_DETAILS: TournamentDetails = { teams: [], points_table: [], photos: [], videos: [] }
+const EMPTY_DETAILS: TournamentDetails = { teams: [], matches: [], points_table: [], photos: [], videos: [] }
 
 function countdownLabel(days: number | null): { value: string; label: string } | null {
   if (days === null || days < 0) return null
@@ -44,7 +45,7 @@ export default function TournamentSections({ slug, status, startDate }: Props) {
 
   if (result?.slug !== slug) return <div className="text-center py-4"><Spinner animation="border" size="sm" /></div>
 
-  const { teams, points_table: points, photos, videos } = result.details
+  const { teams, matches = [], points_table: points, photos, videos } = result.details
   const upcoming = status === 'UPCOMING'
   const finished = status === 'PAST'
   const hasResults = points.some((row) => row.played > 0)
@@ -94,6 +95,8 @@ export default function TournamentSections({ slug, status, startDate }: Props) {
           </Row>
         )}
       </section>
+
+      <TournamentMatches matches={matches} upcoming={upcoming} finished={finished} />
 
       <section className="mb-4">
         <h2 className="activity-detail__section-title">Points Table</h2>
