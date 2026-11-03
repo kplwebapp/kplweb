@@ -4,9 +4,15 @@ import TeamBadge from './TeamBadge'
 
 const formatNrr = (value: number | null) => (value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(3)}`)
 
-/** Standings table; the NRR column only appears when at least one result has scores. */
-export default function PointsTableView({ rows }: { rows: PointsRow[] }) {
-  const showNrr = rows.some((row) => row.net_run_rate !== null)
+/** Standings table with net run rate (shown as — until match scores are entered). */
+export default function PointsTableView({
+  rows,
+  showNrr = true,
+}: {
+  rows: PointsRow[]
+  /** Set false for non-cricket sports that do not use net run rate. */
+  showNrr?: boolean
+}) {
   const showTied = rows.some((row) => row.tied > 0)
   const showNoResult = rows.some((row) => row.no_result > 0)
 

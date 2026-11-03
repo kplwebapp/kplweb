@@ -21,11 +21,22 @@ export default function OverviewTab({ detail }: TabProps) {
   const uncategorised = lots.filter((l) => l.is_eligible && l.status === 'PENDING' && !l.auction_category_id).length
   const squadPlaces = teams.reduce((sum, t) => sum + t.max_players, 0)
 
+  const iconCat = categories.find((c) => /icon/i.test(c.name))
+  const iconCount = iconCat
+    ? lots.filter((l) => l.auction_category_id === iconCat.auction_category_id && l.is_eligible && l.status !== 'WITHDRAWN').length
+    : 0
+
   const checklist = [
     { done: Boolean(auction.event_id), text: 'Linked to a cricket tournament (Settings)' },
     { done: teams.length >= 2, text: `At least two teams with budgets (${teams.length} now, Teams & budgets)` },
     { done: stats.available > 0, text: `Eligible players in the pool (${stats.available} now, Player pool)` },
     ...(categories.length ? [{ done: uncategorised === 0, text: `Every eligible player has a category (${uncategorised} missing)` }] : []),
+    ...(iconCat
+      ? [{
+          done: iconCount === teams.length && teams.length > 0,
+          text: `Icon Players equal team count (${iconCount} / ${teams.length})`,
+        }]
+      : []),
   ]
 
   return (

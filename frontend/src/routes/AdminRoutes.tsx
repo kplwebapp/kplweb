@@ -7,6 +7,7 @@ import type { ActivityKind } from '@/services/api/activitiesApi'
 import DashboardLayout from '@/admin/layouts/DashboardLayout'
 import ProtectedRoute from '@/admin/components/ProtectedRoute'
 import LoginPage from '@/admin/pages/Login'
+import SessionExpiredPage from '@/admin/pages/SessionExpired'
 import DashboardPage from '@/admin/pages/Dashboard'
 import GalleryPage from '@/admin/pages/Gallery'
 import SponsorsPage from '@/admin/pages/Sponsors'
@@ -39,6 +40,7 @@ export default function AdminRoutes() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="session-expired" element={<SessionExpiredPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />

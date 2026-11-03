@@ -6,14 +6,17 @@ import { ADMIN_BASE } from '@/admin/config/sidebar'
 import { adminSession } from '@/utils/adminSession'
 
 export default function LoginPage() {
+  const [searchParams] = useSearchParams()
   if (adminSession.getToken()) return <Navigate to={ADMIN_BASE} replace />
+  // Old idle links used ?expired=1 — send them to the dedicated notice page.
+  if (searchParams.get('expired') === '1') {
+    return <Navigate to={`${ADMIN_BASE}/session-expired`} replace />
+  }
   return <LoginForm />
 }
 
 function LoginForm() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const sessionEnded = searchParams.get('expired') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -47,11 +50,6 @@ function LoginForm() {
                   Sign in with an admin account. This is separate from the member login on the website.
                 </p>
 
-                {sessionEnded && !error && (
-                  <Alert variant="warning" className="small">
-                    Your admin session has ended. Please sign in again.
-                  </Alert>
-                )}
                 {error && <Alert variant="danger">{error}</Alert>}
 
                 <Form onSubmit={handleSubmit}>

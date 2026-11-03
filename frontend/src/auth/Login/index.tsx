@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FocusEvent, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { Form, Button, FloatingLabel, Alert } from 'react-bootstrap'
 import LoginRegisterLayout from '../../layouts/LoginRegisterLayout'
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,6 +14,7 @@ export default function Login({ navigate }: Props) {
   const { login } = useAuth()
   const [searchParams] = useSearchParams()
   const redirect = searchParams.get('redirect')
+  const sessionEnded = searchParams.get('expired') === '1'
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -24,6 +25,10 @@ export default function Login({ navigate }: Props) {
   const [loading, setLoading] = useState(false)
   const [validFields, setValidFields] = useState<Record<string, boolean>>({})
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  if (sessionEnded) {
+    return <Navigate to="/session-expired" replace />
+  }
 
   const validateField = (name: string, value: string) => {
     const errors: Record<string, string> = {}

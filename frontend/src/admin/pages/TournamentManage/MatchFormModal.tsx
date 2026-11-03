@@ -40,8 +40,11 @@ const inningsOf = (m: TournamentMatch | null, side: 1 | 2): Innings => ({
   overs: toText(m ? (side === 1 ? m.team1_overs : m.team2_overs) : null),
 })
 
-const pointsOf = (m: TournamentMatch | null, side: 1 | 2) =>
-  toText(m?.score_data ? (side === 1 ? m.score_data.team1_points : m.score_data.team2_points) : null)
+const pointsOf = (m: TournamentMatch | null, side: 1 | 2) => {
+  const data = m?.score_data
+  if (!data || data.sport === 'cricket') return ''
+  return toText(side === 1 ? data.team1_points : data.team2_points)
+}
 
 export default function MatchFormModal({
   tournamentId,
@@ -99,7 +102,10 @@ export default function MatchFormModal({
       team2_points: sport === 'cricket' ? null : toNumber(points2),
       score_data:
         sport === 'cricket'
-          ? null
+          ? // Keep live/full scoreboard JSON written from the Scores tab.
+            editing?.score_data?.sport === 'cricket'
+              ? editing.score_data
+              : null
           : {
               sport,
               team1_points: toNumber(points1),

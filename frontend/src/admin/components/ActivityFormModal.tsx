@@ -33,6 +33,7 @@ const toForm = (category: Category, item: Activity | null): ActivityInput => ({
   // single-day records store no end date; show it as the same day in the range
   end_date: item?.end_date ?? item?.event_date ?? '',
   venue: item?.venue ?? '',
+  requires_auction: item?.requires_auction ?? false,
 })
 
 /** Mount with a `key` per record so the form resets when switching between records. */
@@ -124,11 +125,15 @@ export default function ActivityFormModal({ kind, category, editing, onClose, on
     setSaving(true)
     setError('')
     let id = savedId
+    const payload: ActivityInput = {
+      ...form,
+      requires_auction: isTournament && category.slug === 'cricket' ? Boolean(form.requires_auction) : false,
+    }
     try {
       if (id) {
-        await adminActivitiesApi.update(id, form)
+        await adminActivitiesApi.update(id, payload)
       } else {
-        const created = await adminActivitiesApi.create(kind, form)
+        const created = await adminActivitiesApi.create(kind, payload)
         id = created.data.event_id
         setSavedId(id)
       }
@@ -228,6 +233,21 @@ export default function ActivityFormModal({ kind, category, editing, onClose, on
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </Form.Group>
+          {isTournament && category.slug === 'cricket' && (
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                id="requires-auction"
+                label="Requires auction"
+                checked={Boolean(form.requires_auction)}
+                onChange={(e) => setForm({ ...form, requires_auction: e.target.checked })}
+              />
+              <Form.Text muted>
+                Only tournaments with this enabled can be linked to a player auction. Leave unchecked for cricket
+                events played without an auction.
+              </Form.Text>
+            </Form.Group>
+          )}
           {isTournament && (
             <ParticipatingTeamsPicker
               gameName={category.name}

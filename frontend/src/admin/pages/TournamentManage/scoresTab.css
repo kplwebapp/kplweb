@@ -1,0 +1,61 @@
+.kpl-scoreboard-hero {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #0b3d2e 0%, #146c43 55%, #198754 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(11, 61, 46, 0.25);
+}
+
+.kpl-score-name {
+  font-size: 0.95rem;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+.kpl-score-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpl-score-vs {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.kpl-live-pulse {
+  animation: kpl-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes kpl-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.kpl-live-panel,
+.kpl-full-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+
+.kpl-scores-schedule tbody tr {
+  cursor: pointer;
+}
+
+.kpl-scores-schedule tbody tr:hover {
+  background: rgba(25, 135, 84, 0.06);
+}

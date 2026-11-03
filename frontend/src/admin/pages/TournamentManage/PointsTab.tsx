@@ -4,9 +4,16 @@ import { useReloadable } from '@/admin/hooks/useReloadable'
 import PointsTableView from '@/components/tournament/PointsTableView'
 import { tournamentAdminApi } from '@/services/api/tournamentApi'
 
-export default function PointsTab({ tournamentId }: { tournamentId: number }) {
+export default function PointsTab({
+  tournamentId,
+  categorySlug,
+}: {
+  tournamentId: number
+  categorySlug?: string | null
+}) {
   const load = useCallback(() => tournamentAdminApi.getPointsTable(tournamentId).then((res) => res.data), [tournamentId])
   const { data, error, loading } = useReloadable(load, String(tournamentId))
+  const isCricket = (categorySlug ?? '').toLowerCase() === 'cricket'
 
   if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>
   if (!data) return <Alert variant="danger">{error}</Alert>
@@ -17,14 +24,16 @@ export default function PointsTab({ tournamentId }: { tournamentId: number }) {
     <>
       <p className="text-muted">
         Calculated automatically from completed league matches: win 2 points, tie or no result 1, loss 0.
-        Ties on points are separated by net run rate (when scores are entered), then wins.
+        {isCricket
+          ? ' Ties on points are separated by net run rate (when scores are entered), then wins.'
+          : ' Ties on points are separated by wins.'}
         {!hasResults && ' The table appears on the website once the first league result is recorded.'}
       </p>
       {data.length === 0 ? (
         <Alert variant="info">Add teams to this tournament to start the points table.</Alert>
       ) : (
         <Card className="border-0 shadow-sm overflow-hidden">
-          <PointsTableView rows={data} />
+          <PointsTableView rows={data} showNrr={isCricket} />
         </Card>
       )}
     </>

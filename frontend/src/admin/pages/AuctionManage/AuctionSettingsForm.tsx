@@ -1,6 +1,6 @@
 import { Button, Col, Form, Row, Table } from 'react-bootstrap'
 import type { TournamentOption } from '@/services/api/auctionApi'
-import { newCategory, type CategoryDraft, type SettingKey, type SettingsDraft } from './auctionSettings'
+import { isIconCategoryName, newCategory, type CategoryDraft, type SettingKey, type SettingsDraft } from './auctionSettings'
 
 type FieldsProps = {
   draft: SettingsDraft
@@ -37,7 +37,10 @@ export function SettingsFields({ draft, onChange, tournaments, currentAuctionId,
               </option>
             ))}
           </Form.Select>
-          <Form.Text>Its registered players form the player pool, and its teams join automatically.</Form.Text>
+          <Form.Text>
+            Only cricket tournaments marked “Requires auction” appear here. Registered players form the pool; tournament
+            teams join automatically.
+          </Form.Text>
         </Form.Group>
       </Col>
 
@@ -105,11 +108,23 @@ type EditorProps = {
   categories: CategoryDraft[]
   onChange: (next: CategoryDraft[]) => void
   disabled?: boolean
+  /** Participating teams — Icon Player pool size must match this (cricket). */
+  teamCount?: number
 }
 
-export function CategoryEditor({ categories, onChange, disabled }: EditorProps) {
+export function CategoryEditor({ categories, onChange, disabled, teamCount }: EditorProps) {
   const set = (key: string, field: keyof CategoryDraft, value: string) =>
-    onChange(categories.map((c) => (c.key === key ? { ...c, [field]: value } : c)))
+    onChange(
+      categories.map((c) => {
+        if (c.key !== key) return c
+        const next = { ...c, [field]: value }
+        if (field === 'name' && isIconCategoryName(value)) {
+          next.min_per_team = '1'
+          next.max_per_team = '1'
+        }
+        return next
+      }),
+    )
   const move = (index: number, delta: number) => {
     const next = [...categories]
     const [item] = next.splice(index, 1)
@@ -119,6 +134,14 @@ export function CategoryEditor({ categories, onChange, disabled }: EditorProps) 
 
   return (
     <>
+      {categories.some((c) => isIconCategoryName(c.name)) && (
+        <p className="small text-muted mb-2">
+          Icon Player is cricket-only: one per team
+          {typeof teamCount === 'number' && teamCount > 0
+            ? ` — keep ${teamCount} Icon Player(s) in the pool for ${teamCount} team(s).`
+            : ' — pool size must equal the number of participating teams.'}
+        </p>
+      )}
       <Table size="sm" responsive className="align-middle mb-2">
         <thead>
           <tr>
@@ -135,7 +158,9 @@ export function CategoryEditor({ categories, onChange, disabled }: EditorProps) 
               <td colSpan={5} className="text-muted">No categories: players are auctioned without category rules.</td>
             </tr>
           )}
-          {categories.map((c, i) => (
+          {categories.map((c, i) => {
+            const isIcon = isIconCategoryName(c.name)
+            return (
             <tr key={c.key}>
               <td>
                 <Form.Control size="sm" maxLength={50} value={c.name} disabled={disabled}
@@ -146,11 +171,11 @@ export function CategoryEditor({ categories, onChange, disabled }: EditorProps) 
                   aria-label={`${c.name} base points`} onChange={(e) => set(c.key, 'base_price', e.target.value)} />
               </td>
               <td>
-                <Form.Control size="sm" type="number" min={0} value={c.min_per_team} disabled={disabled}
+                <Form.Control size="sm" type="number" min={0} value={isIcon ? '1' : c.min_per_team} disabled={disabled || isIcon}
                   aria-label={`${c.name} minimum per team`} onChange={(e) => set(c.key, 'min_per_team', e.target.value)} />
               </td>
               <td>
-                <Form.Control size="sm" type="number" min={0} placeholder="Any" value={c.max_per_team} disabled={disabled}
+                <Form.Control size="sm" type="number" min={0} placeholder="Any" value={isIcon ? '1' : c.max_per_team} disabled={disabled || isIcon}
                   aria-label={`${c.name} maximum per team`} onChange={(e) => set(c.key, 'max_per_team', e.target.value)} />
               </td>
               <td className="text-end text-nowrap">
@@ -162,7 +187,8 @@ export function CategoryEditor({ categories, onChange, disabled }: EditorProps) 
                   aria-label={`Remove ${c.name}`} onClick={() => onChange(categories.filter((x) => x.key !== c.key))}>✕</Button>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </Table>
       {!disabled && (

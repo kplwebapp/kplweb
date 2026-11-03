@@ -24,11 +24,20 @@ const addTeamsSchema = Joi.object({
   team_ids: Joi.array().items(id).min(1).max(50).required(),
 });
 
-const scoreDataSchema = Joi.object({
-  sport: Joi.string().valid('cricket', 'carrom', 'chess').required(),
-  team1_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
-  team2_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
-})
+const scoreDataSchema = Joi.alternatives()
+  .try(
+    Joi.object({
+      sport: Joi.string().valid('carrom', 'chess').required(),
+      team1_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+      team2_points: Joi.number().min(0).max(9999).empty('').allow(null).default(null),
+    }),
+    // Cricket live/full scoreboard (CricHeroes-style payload) stored in score_data.
+    Joi.object({
+      sport: Joi.string().valid('cricket').required(),
+      innings: Joi.array().items(Joi.object().unknown(true)).max(4).default([]),
+      live: Joi.object().unknown(true).allow(null).default(null),
+    }).unknown(true)
+  )
   .empty(null)
   .allow(null)
   .default(null);

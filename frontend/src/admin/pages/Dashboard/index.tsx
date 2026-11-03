@@ -23,9 +23,11 @@ const PALETTE = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4
 const STATUS_COLORS = { Approved: '#10b981', 'Pending approval': '#f59e0b' }
 
 /** One colour per vibhaag (in VIBHAAG_OPTIONS order), the same in every chart. */
-const VIBHAAG_COLORS: Record<string, string> = Object.fromEntries(
-  VIBHAAG_OPTIONS.map((name, i) => [name, PALETTE[i % PALETTE.length]]),
-)
+const VIBHAAG_COLORS: Record<string, string> = {
+  ...Object.fromEntries(VIBHAAG_OPTIONS.map((name, i) => [name, PALETTE[i % PALETTE.length]])),
+  'Not specified': '#94a3b8',
+  Other: '#64748b',
+}
 const vibhaagColor = (name: string) => VIBHAAG_COLORS[name] ?? '#cbd5e1'
 
 const total = (rows: { count: number }[]) => rows.reduce((sum, r) => sum + r.count, 0)
@@ -242,7 +244,8 @@ const tournamentLabel = (t: TournamentVibhaag) =>
 
 function TournamentVibhaagCard({ tournaments }: { tournaments: TournamentVibhaag[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const selected = tournaments.find((t) => t.event_id === selectedId) ?? tournaments[0]
+  const defaultTournament = tournaments.find((t) => total(t.byVibhaag) > 0) ?? tournaments[0]
+  const selected = tournaments.find((t) => t.event_id === selectedId) ?? defaultTournament
 
   return (
     <ChartCard

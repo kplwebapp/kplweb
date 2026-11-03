@@ -168,7 +168,12 @@ function CategoryActivities({ kind, slug }: { kind: ActivityKind; slug: string }
               items.map((item) => (
                 <tr key={item.event_id}>
                   <td className="text-nowrap">{formatEventDateRange(item.event_date, item.end_date) || 'Date TBA'}</td>
-                  <td className="fw-semibold">{item.title}</td>
+                  <td className="fw-semibold">
+                    {item.title}
+                    {kind === 'TOURNAMENT' && item.requires_auction && (
+                      <span className="badge text-bg-info ms-2 fw-normal">Auction</span>
+                    )}
+                  </td>
                   <td>{item.venue || '—'}</td>
                   <td className="text-center">{item.days ?? '—'}</td>
                   <td className="text-end">

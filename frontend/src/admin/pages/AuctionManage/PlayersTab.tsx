@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table } from 'react-bootstrap'
 import { useReloadable } from '@/admin/hooks/useReloadable'
 import { auctionAdminApi, type AuctionLot } from '@/services/api/auctionApi'
 import { LOT_STATUS_LABEL, LOT_STATUS_VARIANT, formatPoints, playerStyle } from '@/utils/auctionText'
@@ -8,6 +8,7 @@ import type { TabProps } from './shared'
 
 const OPEN = ['DRAFT', 'READY', 'LIVE', 'PAUSED']
 const CHANGEABLE = ['PENDING', 'UNSOLD']
+const POOL_PAGE_SIZE = 10
 
 export function PlayerPhoto({ path, name, size = 36 }: { path: string | null; name: string; size?: number }) {
   return (
@@ -45,9 +46,10 @@ export default function PlayersTab(props: TabProps) {
 
 function CandidatesCard({ detail, auctionId, run }: TabProps) {
   const load = useCallback(() => auctionAdminApi.candidates(auctionId).then((res) => res.data), [auctionId])
-  // Refresh the list whenever the pool changes.
-  const { data, error, loading, reload } = useReloadable(load, `${auctionId}:${detail.lots.length}`, true)
-  const [selected, setSelected] = useState<Set<number>>(new Set())
+  // Refresh when anyone is added/removed from the active pool (WITHDRAWN lots stay in detail.lots).
+  const poolKey = detail.lots.filter((l) => l.status !== 'WITHDRAWN').map((l) => l.lot_id).join(',')
+  const { data, error, loading, reload } = useReloadable(load, `${auctionId}:${poolKey}`, true)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [categoryId, setCategoryId] = useState('')
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -55,20 +57,26 @@ function CandidatesCard({ detail, auctionId, run }: TabProps) {
   if (loading && !data) return <Card className="border-0 shadow-sm"><Card.Body className="text-center"><Spinner animation="border" /></Card.Body></Card>
   if (!data) return <Alert variant="danger">{error}</Alert>
 
+  const candidateKey = (c: (typeof data)[number]) =>
+    c.user_id != null ? `user:${c.user_id}` : `lot:${c.withdrawn_lot_id}`
+
   const term = search.trim().toLowerCase()
   const visible = data.filter((c) => !term || c.full_name.toLowerCase().includes(term) || c.vibhaag?.toLowerCase().includes(term))
-  const toggle = (userId: number) =>
+  const toggle = (key: string) =>
     setSelected((prev) => {
       const next = new Set(prev)
-      if (next.has(userId)) next.delete(userId)
-      else next.add(userId)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
 
   const add = async () => {
+    const chosen = data.filter((c) => selected.has(candidateKey(c)))
+    const userIds = chosen.map((c) => c.user_id).filter((id): id is number => id != null)
+    const lotIds = chosen.map((c) => c.withdrawn_lot_id).filter((id): id is number => id != null)
     setBusy(true)
     const ok = await run(
-      () => auctionAdminApi.addPlayers(auctionId, [...selected], categoryId ? Number(categoryId) : null),
+      () => auctionAdminApi.addPlayers(auctionId, { userIds, lotIds }, categoryId ? Number(categoryId) : null),
       `${selected.size} player(s) added to the pool.`,
     )
     setBusy(false)
@@ -89,7 +97,7 @@ function CandidatesCard({ detail, auctionId, run }: TabProps) {
             <Form.Control size="sm" className="mb-2" placeholder="Search name or vibhaag" value={search}
               aria-label="Search registered players" onChange={(e) => setSearch(e.target.value)} />
             <div className="d-flex justify-content-between small mb-1">
-              <Button variant="link" size="sm" className="p-0" onClick={() => setSelected(new Set(visible.map((c) => c.user_id)))}>
+              <Button variant="link" size="sm" className="p-0" onClick={() => setSelected(new Set(visible.map(candidateKey)))}>
                 Select all shown
               </Button>
               {selected.size > 0 && (
@@ -97,16 +105,19 @@ function CandidatesCard({ detail, auctionId, run }: TabProps) {
               )}
             </div>
             <div className="mb-3 border rounded" style={{ maxHeight: 360, overflowY: 'auto' }}>
-              {visible.map((c) => (
-                <label key={c.user_id} htmlFor={`candidate-${c.user_id}`} className="d-flex align-items-center gap-2 px-2 py-1 border-bottom mb-0">
-                  <Form.Check id={`candidate-${c.user_id}`} checked={selected.has(c.user_id)} onChange={() => toggle(c.user_id)} />
+              {visible.map((c) => {
+                const key = candidateKey(c)
+                return (
+                <label key={key} htmlFor={`candidate-${key}`} className="d-flex align-items-center gap-2 px-2 py-1 border-bottom mb-0">
+                  <Form.Check id={`candidate-${key}`} checked={selected.has(key)} onChange={() => toggle(key)} />
                   <PlayerPhoto path={c.profile_photo} name={c.full_name} size={28} />
                   <span className="min-w-0">
                     <span className="d-block text-truncate">{c.full_name}</span>
                     <small className="text-muted d-block text-truncate">{[c.vibhaag, playerStyle(c)].filter(Boolean).join(' · ')}</small>
                   </span>
                 </label>
-              ))}
+                )
+              })}
               {visible.length === 0 && <p className="text-muted small p-2 mb-0">No matches.</p>}
             </div>
             <Form.Group className="mb-3" controlId="candidate-category">
@@ -128,24 +139,10 @@ function CandidatesCard({ detail, auctionId, run }: TabProps) {
   )
 }
 
-function BasePriceInput({ lot, disabled, onSave }: { lot: AuctionLot; disabled: boolean; onSave: (value: number) => void }) {
-  const [value, setValue] = useState(String(lot.base_price))
-  const commit = () => {
-    const n = Number(value)
-    if (value === '' || !Number.isInteger(n) || n < 0) setValue(String(lot.base_price))
-    else if (n !== lot.base_price) onSave(n)
-  }
-  return (
-    <Form.Control size="sm" type="number" min={0} step={1} value={value} disabled={disabled}
-      aria-label={`${lot.player_name} base points`} style={{ width: 110 }}
-      onChange={(e) => setValue(e.target.value)} onBlur={commit}
-      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }} />
-  )
-}
-
 function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editable: boolean }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [busyLotId, setBusyLotId] = useState<number | null>(null)
   const { lots, categories, auction, current, can } = detail
   const canPutOnLive =
@@ -155,13 +152,27 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
     !current
 
   const term = search.trim().toLowerCase()
-  const visible = lots.filter((l) => {
-    if (term && !l.player_name.toLowerCase().includes(term) && !l.vibhaag?.toLowerCase().includes(term)) return false
-    if (filter === 'all') return l.status !== 'WITHDRAWN'
-    if (filter === 'ineligible') return !l.is_eligible
-    if (filter === 'uncategorised') return !l.auction_category_id && l.status !== 'WITHDRAWN'
-    return l.status === filter
-  })
+  const visible = useMemo(
+    () =>
+      lots.filter((l) => {
+        if (term && !l.player_name.toLowerCase().includes(term) && !l.vibhaag?.toLowerCase().includes(term)) return false
+        if (filter === 'all') return l.status !== 'WITHDRAWN'
+        if (filter === 'uncategorised') return !l.auction_category_id && l.status !== 'WITHDRAWN'
+        return l.status === filter
+      }),
+    [lots, term, filter],
+  )
+
+  useEffect(() => {
+    setPage(1)
+  }, [filter, search])
+
+  const total = visible.length
+  const totalPages = Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const rangeStart = total === 0 ? 0 : (safePage - 1) * POOL_PAGE_SIZE + 1
+  const rangeEnd = Math.min(safePage * POOL_PAGE_SIZE, total)
+  const pageRows = visible.slice((safePage - 1) * POOL_PAGE_SIZE, safePage * POOL_PAGE_SIZE)
 
   const update = (lot: AuctionLot, body: Parameters<typeof auctionAdminApi.updateLot>[2], message: string) =>
     run(() => auctionAdminApi.updateLot(auctionId, lot.lot_id, body), message)
@@ -186,34 +197,27 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
     run(() => auctionAdminApi.reorder(auctionId, ids), 'Order saved.')
   }
 
-  const setEligible = (lot: AuctionLot, eligible: boolean) => {
-    if (eligible) {
-      update(lot, { is_eligible: true, eligibility_note: null }, `${lot.player_name} is eligible.`)
-      return
-    }
-    ask({
-      title: `Mark ${lot.player_name} ineligible?`,
-      body: 'Ineligible players stay in the pool but are skipped in the auction and hidden from the public screen.',
-      confirmLabel: 'Mark ineligible',
-      variant: 'warning',
-      reason: 'required',
-      onConfirm: (reason) => update(lot, { is_eligible: false, eligibility_note: reason }, `${lot.player_name} marked ineligible.`),
-    })
-  }
-
   const withdraw = (lot: AuctionLot) =>
     ask({
       title: `Remove ${lot.player_name} from the pool?`,
-      body: 'The player will not be auctioned. You can restore them later; the change is kept in the history.',
+      body: 'They go back to Registered (not in the pool) and can be added again later. The change is kept in the history.',
       confirmLabel: 'Remove',
       variant: 'danger',
-      onConfirm: () => run(() => auctionAdminApi.withdrawLot(auctionId, lot.lot_id), `${lot.player_name} removed from the pool.`),
+      onConfirm: () => run(() => auctionAdminApi.withdrawLot(auctionId, lot.lot_id), `${lot.player_name} moved back to registered.`),
     })
 
   const counts = {
     all: lots.filter((l) => l.status !== 'WITHDRAWN').length,
-    withdrawn: lots.filter((l) => l.status === 'WITHDRAWN').length,
   }
+
+  const pageItems = useMemo(() => {
+    const items: number[] = []
+    const window = 2
+    const from = Math.max(1, safePage - window)
+    const to = Math.min(totalPages, safePage + window)
+    for (let p = from; p <= to; p += 1) items.push(p)
+    return items
+  }, [safePage, totalPages])
 
   return (
     <Card className="border-0 shadow-sm">
@@ -228,13 +232,11 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
             <option value="SOLD">Sold</option>
             <option value="UNSOLD">Unsold</option>
             <option value="uncategorised">No category</option>
-            <option value="ineligible">Ineligible</option>
-            <option value="WITHDRAWN">Removed ({counts.withdrawn})</option>
           </Form.Select>
         </div>
       </Card.Header>
       <Card.Body className="p-0">
-        {visible.length === 0 ? (
+        {total === 0 ? (
           <p className="text-muted p-3 mb-0">{lots.length === 0 ? 'No players yet. Add registered players from the list.' : 'No players match.'}</p>
         ) : (
           <Table responsive hover className="mb-0 align-middle small">
@@ -243,14 +245,12 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                 <th>#</th>
                 <th>Player</th>
                 <th>Category</th>
-                <th>Base</th>
-                <th className="text-center">Eligible</th>
                 <th>Status</th>
                 {(editable || canPutOnLive) && <th />}
               </tr>
             </thead>
             <tbody>
-              {visible.map((lot) => {
+              {pageRows.map((lot) => {
                 const changeable = editable && CHANGEABLE.includes(lot.status)
                 const showPutOnLive =
                   canPutOnLive && lot.is_eligible && (lot.status === 'PENDING' || lot.status === 'UNSOLD')
@@ -263,7 +263,6 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                         <div className="min-w-0">
                           <div className="fw-semibold">{lot.player_name}</div>
                           <div className="text-muted">{[lot.vibhaag, playerStyle(lot)].filter(Boolean).join(' · ')}</div>
-                          {!lot.is_eligible && lot.eligibility_note && <div className="text-warning">{lot.eligibility_note}</div>}
                         </div>
                       </div>
                     </td>
@@ -279,18 +278,6 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                       ) : (
                         lot.category_name ?? lot.player_role ?? '—'
                       )}
-                    </td>
-                    <td>
-                      {changeable ? (
-                        <BasePriceInput key={lot.base_price} lot={lot} disabled={false}
-                          onSave={(value) => update(lot, { base_price: value }, 'Base points saved.')} />
-                      ) : (
-                        formatPoints(lot.base_price)
-                      )}
-                    </td>
-                    <td className="text-center">
-                      <Form.Check aria-label={`${lot.player_name} eligible`} checked={lot.is_eligible} disabled={!changeable}
-                        onChange={(e) => setEligible(lot, e.target.checked)} className="d-inline-block" />
                     </td>
                     <td>
                       <Badge bg={LOT_STATUS_VARIANT[lot.status]} text={lot.status === 'PENDING' ? 'dark' : undefined}>
@@ -327,12 +314,6 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
                         {editable && CHANGEABLE.includes(lot.status) && (
                           <Button size="sm" variant="link" className="px-1 text-danger" onClick={() => withdraw(lot)}>Remove</Button>
                         )}
-                        {editable && lot.status === 'WITHDRAWN' && (
-                          <Button size="sm" variant="link" className="px-1"
-                            onClick={() => run(() => auctionAdminApi.restoreLot(auctionId, lot.lot_id), `${lot.player_name} restored.`)}>
-                            Restore
-                          </Button>
-                        )}
                       </td>
                     )}
                   </tr>
@@ -342,6 +323,40 @@ function PoolCard({ detail, auctionId, run, ask, editable }: TabProps & { editab
           </Table>
         )}
       </Card.Body>
+      {total > 0 && (
+        <Card.Footer className="bg-white d-flex flex-wrap gap-2 justify-content-between align-items-center">
+          <span className="small text-muted">
+            {rangeStart}–{rangeEnd} of {total}
+          </span>
+          <Pagination size="sm" className="mb-0">
+            <Pagination.Prev
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            />
+            {pageItems[0] > 1 && (
+              <>
+                <Pagination.Item onClick={() => setPage(1)}>{1}</Pagination.Item>
+                {pageItems[0] > 2 && <Pagination.Ellipsis disabled />}
+              </>
+            )}
+            {pageItems.map((p) => (
+              <Pagination.Item key={p} active={p === safePage} onClick={() => setPage(p)}>
+                {p}
+              </Pagination.Item>
+            ))}
+            {pageItems[pageItems.length - 1] < totalPages && (
+              <>
+                {pageItems[pageItems.length - 1] < totalPages - 1 && <Pagination.Ellipsis disabled />}
+                <Pagination.Item onClick={() => setPage(totalPages)}>{totalPages}</Pagination.Item>
+              </>
+            )}
+            <Pagination.Next
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            />
+          </Pagination>
+        </Card.Footer>
+      )}
     </Card>
   )
 }

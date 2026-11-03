@@ -1,0 +1,19 @@
+.session-timeout-modal .modal-content {
+  border: none;
+  border-radius: 0.85rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+}
+
+.session-timeout-modal__countdown {
+  font-size: 1.05rem;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 0.5rem;
+  padding: 0.65rem 1rem;
+}
+
+.session-timeout-modal__art {
+  line-height: 0;
+  margin-bottom: 0.5rem;
+}

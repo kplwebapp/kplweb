@@ -45,10 +45,11 @@ export default function TournamentSections({ slug, status, startDate }: Props) {
 
   if (result?.slug !== slug) return <div className="text-center py-4"><Spinner animation="border" size="sm" /></div>
 
-  const { teams, matches = [], points_table: points, photos, videos } = result.details
+  const { teams, matches = [], points_table: points, photos, videos, category_slug: sport } = result.details
   const upcoming = status === 'UPCOMING'
   const finished = status === 'PAST'
   const hasResults = points.some((row) => row.played > 0)
+  const showNrr = (sport ?? '').toLowerCase() === 'cricket'
   const countdown = upcoming ? countdownLabel(daysUntil(startDate)) : null
   const galleryItems = tab === 'photos' ? photos : videos
 
@@ -102,7 +103,7 @@ export default function TournamentSections({ slug, status, startDate }: Props) {
         <h2 className="activity-detail__section-title">Points Table</h2>
         {hasResults ? (
           <Card className="border-0 shadow-sm overflow-hidden">
-            <PointsTableView rows={points} />
+            <PointsTableView rows={points} showNrr={showNrr} />
           </Card>
         ) : (
           <EmptyState

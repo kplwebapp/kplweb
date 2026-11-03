@@ -207,7 +207,8 @@ const refresh = async (refreshToken) => {
 
   const session = await loginSessionsRepository.findActiveById(payload.sid);
   if (!session || Number(session.user_id) !== Number(payload.sub)) {
-    throw new ApiError(401, 'Session expired. Please sign in again.');
+    await loginSessionsRepository.revokeIfIdle(payload.sid);
+    throw new ApiError(401, 'Session expired due to inactivity. Please sign in again.');
   }
 
   if (session.refresh_token_hash !== hashToken(refreshToken)) {

@@ -21,6 +21,11 @@ const router = Router();
 
 const canRead = [authenticate, authorize(PERMISSIONS.TOURNAMENTS_READ)];
 const canWrite = [authenticate, authorize(PERMISSIONS.TOURNAMENTS_WRITE)];
+/** Scorers may update scores without full tournament write access. */
+const canScoreOrWrite = [
+  authenticate,
+  authorize(PERMISSIONS.TOURNAMENTS_WRITE, PERMISSIONS.SCORING_WRITE, PERMISSIONS.SCORING_LIVE),
+];
 const params = (schema) => validate(schema, 'params');
 
 router.get('/slug/:slug/details', controller.getPublicDetails);
@@ -31,7 +36,13 @@ router.delete('/:id/teams/:teamId', ...canWrite, params(teamParamsSchema), contr
 
 router.get('/:id/matches', ...canRead, params(idParamsSchema), controller.listMatches);
 router.post('/:id/matches', ...canWrite, params(idParamsSchema), validate(matchSchema), controller.createMatch);
-router.put('/:id/matches/:matchId', ...canWrite, params(matchParamsSchema), validate(matchSchema), controller.updateMatch);
+router.put(
+  '/:id/matches/:matchId',
+  ...canScoreOrWrite,
+  params(matchParamsSchema),
+  validate(matchSchema),
+  controller.updateMatch
+);
 router.delete('/:id/matches/:matchId', ...canWrite, params(matchParamsSchema), controller.removeMatch);
 
 router.get('/:id/points', ...canRead, params(idParamsSchema), controller.getPointsTable);

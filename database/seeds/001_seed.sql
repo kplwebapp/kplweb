@@ -76,7 +76,7 @@ ON CONFLICT DO NOTHING;
 -- Scorer permissions
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id FROM roles r, permissions p
-WHERE r.role_code = 'SCORER' AND p.permission_code IN ('matches:read','scoring:read','scoring:write','scoring:live','stats:read','dashboard:read')
+WHERE r.role_code = 'SCORER' AND p.permission_code IN ('tournaments:read','matches:read','scoring:read','scoring:write','scoring:live','stats:read','dashboard:read')
 ON CONFLICT DO NOTHING;
 
 -- Viewer permissions

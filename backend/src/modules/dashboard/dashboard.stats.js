@@ -9,14 +9,36 @@ const MEMBERS_SQL = `
     WHERE ur.user_id = u.user_id AND r.role_code = 'PLAYER'
   )`;
 
-/** Count rows per vibhaag in VIBHAAG_OPTIONS order, zeros included; values outside the list are dropped. */
+const UNSPECIFIED = 'Not specified';
+const OTHER = 'Other';
+
+/**
+ * Count rows per vibhaag in VIBHAAG_OPTIONS order (zeros included).
+ * Empty/null vibhaag → "Not specified"; unknown labels → "Other" (only when count > 0).
+ */
 const byVibhaag = (rows) => {
   const counts = new Map(VIBHAAG_OPTIONS.map((name) => [name.toLowerCase(), 0]));
+  let unspecified = 0;
+  let other = 0;
   for (const { vibhaag, count } of rows) {
+    const n = Number(count) || 0;
+    if (!n) continue;
     const key = (vibhaag || '').trim().toLowerCase();
-    if (counts.has(key)) counts.set(key, counts.get(key) + count);
+    if (!key) {
+      unspecified += n;
+    } else if (counts.has(key)) {
+      counts.set(key, counts.get(key) + n);
+    } else {
+      other += n;
+    }
   }
-  return VIBHAAG_OPTIONS.map((name) => ({ vibhaag: name, count: counts.get(name.toLowerCase()) }));
+  const result = VIBHAAG_OPTIONS.map((name) => ({
+    vibhaag: name,
+    count: counts.get(name.toLowerCase()),
+  }));
+  if (unspecified) result.push({ vibhaag: UNSPECIFIED, count: unspecified });
+  if (other) result.push({ vibhaag: OTHER, count: other });
+  return result;
 };
 
 /** Every tournament (latest first) with its registrations split by vibhaag. */

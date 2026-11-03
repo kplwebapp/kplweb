@@ -13,7 +13,7 @@ const SELECT_SQL = `SELECT e.event_id, e.kind, e.category_id, c.name AS category
     CASE WHEN e.event_date IS NULL THEN NULL
          ELSE COALESCE(e.end_date, e.event_date) - e.event_date + 1 END AS days,
     ${STATUS_SQL} AS status,
-    e.venue, e.image_url, e.is_archived, e.archived_at, e.created_at, e.updated_at
+    e.venue, e.image_url, e.requires_auction, e.is_archived, e.archived_at, e.created_at, e.updated_at
   FROM events e
   LEFT JOIN activity_categories c ON c.category_id = e.category_id`;
 
@@ -72,8 +72,8 @@ const eventsRepository = {
 
   create: async (data) => {
     const { rows } = await pool.query(
-      `INSERT INTO events (kind, category_id, title, slug, description, event_date, end_date, venue)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO events (kind, category_id, title, slug, description, event_date, end_date, venue, requires_auction)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING event_id`,
       [
         data.kind,
@@ -84,6 +84,7 @@ const eventsRepository = {
         data.event_date || null,
         data.end_date || null,
         data.venue || null,
+        Boolean(data.requires_auction),
       ]
     );
     return eventsRepository.findById(rows[0].event_id);
@@ -100,6 +101,7 @@ const eventsRepository = {
          event_date = CASE WHEN $7::boolean THEN $8::date ELSE event_date END,
          end_date = CASE WHEN $9::boolean THEN $10::date ELSE end_date END,
          venue = CASE WHEN $11::boolean THEN $12 ELSE venue END,
+         requires_auction = CASE WHEN $13::boolean THEN $14::boolean ELSE requires_auction END,
          updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1
        RETURNING event_id`,
@@ -112,6 +114,7 @@ const eventsRepository = {
         has('event_date'), data.event_date || null,
         has('end_date'), data.end_date || null,
         has('venue'), data.venue || null,
+        has('requires_auction'), Boolean(data.requires_auction),
       ]
     );
     return rows[0] ? eventsRepository.findById(rows[0].event_id) : null;

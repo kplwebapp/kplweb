@@ -176,9 +176,14 @@ export default function SettingsTab({ detail, auctionId, run }: TabProps) {
           {categoryError && <Alert variant="danger">{categoryError}</Alert>}
           <p className="small text-muted">
             Categories can change until the auction starts. A category used by players in the pool can be renamed but
-            not removed.
+            not removed. Auctions are for cricket tournaments only.
           </p>
-          <CategoryEditor categories={categories} onChange={setCategories} disabled={!can.manage || !inSetup || auction.is_legacy} />
+          <CategoryEditor
+            categories={categories}
+            onChange={setCategories}
+            disabled={!can.manage || !inSetup || auction.is_legacy}
+            teamCount={detail.teams.length}
+          />
           {can.manage && inSetup && !auction.is_legacy && (
             <div className="d-flex justify-content-end mt-3">
               <Button disabled={busy} onClick={saveCategories}>Save categories</Button>

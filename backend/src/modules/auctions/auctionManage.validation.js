@@ -53,8 +53,15 @@ const teamsSchema = Joi.object({
 });
 
 const addPlayersSchema = Joi.object({
-  user_ids: Joi.array().items(id).min(1).max(500).required(),
+  user_ids: Joi.array().items(id).max(500).default([]),
+  /** Withdrawn dummy lots (no linked member) to put back in the pool. */
+  lot_ids: Joi.array().items(id).max(500).default([]),
   auction_category_id: id.allow(null),
+}).custom((value, helpers) => {
+  if (!(value.user_ids?.length || value.lot_ids?.length)) {
+    return helpers.message('Select at least one player');
+  }
+  return value;
 });
 
 const updateLotSchema = Joi.object({

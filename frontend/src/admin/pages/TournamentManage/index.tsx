@@ -1,23 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, Badge, Nav, Spinner } from 'react-bootstrap'
 import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
 import { ADMIN_BASE, categoryPath } from '@/admin/config/sidebar'
 import { adminActivitiesApi, type Activity } from '@/services/api/activitiesApi'
 import { formatEventDateRange } from '@/utils/eventDate'
+import { adminSession, hasPermission } from '@/utils/adminSession'
 import TeamsTab from './TeamsTab'
+import ScoresTab from './ScoresTab'
 import MatchesTab from './MatchesTab'
 import PointsTab from './PointsTab'
 import GalleryTab from './GalleryTab'
 
-type TabKey = 'teams' | 'matches' | 'points' | 'gallery'
-
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'teams', label: 'Teams' },
-  { key: 'matches', label: 'Matches & Results' },
-  { key: 'points', label: 'Points Table' },
-  { key: 'gallery', label: 'Gallery' },
-]
+type TabKey = 'teams' | 'scores' | 'matches' | 'points' | 'gallery'
 
 type Result = { id: number; tournament: Activity | null; error: string }
 
@@ -25,8 +20,26 @@ type Result = { id: number; tournament: Activity | null; error: string }
 export default function TournamentManagePage() {
   const { category = '', id: idParam = '' } = useParams()
   const id = Number(idParam)
+  const canScore = hasPermission(adminSession.getUser(), 'scoring:write', 'scoring:live')
+  const tabs = useMemo(
+    () =>
+      (
+        [
+          { key: 'teams' as const, label: 'Teams' },
+          ...(canScore ? [{ key: 'scores' as const, label: 'Scores' }] : []),
+          { key: 'matches' as const, label: 'Matches & Results' },
+          { key: 'points' as const, label: 'Points Table' },
+          { key: 'gallery' as const, label: 'Gallery' },
+        ] satisfies { key: TabKey; label: string }[]
+      ),
+    [canScore],
+  )
   const [tab, setTab] = useState<TabKey>('teams')
   const [result, setResult] = useState<Result | null>(null)
+
+  useEffect(() => {
+    if (tab === 'scores' && !canScore) setTab('teams')
+  }, [tab, canScore])
 
   useEffect(() => {
     if (!id) return
@@ -83,7 +96,7 @@ export default function TournamentManagePage() {
       />
 
       <Nav variant="tabs" activeKey={tab} onSelect={(key) => key && setTab(key as TabKey)} className="mb-3">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Nav.Item key={t.key}>
             <Nav.Link eventKey={t.key}>{t.label}</Nav.Link>
           </Nav.Item>
@@ -98,10 +111,13 @@ export default function TournamentManagePage() {
           categorySlug={tournament.category_slug}
         />
       )}
+      {tab === 'scores' && canScore && (
+        <ScoresTab tournamentId={id} categorySlug={tournament.category_slug} />
+      )}
       {tab === 'matches' && (
         <MatchesTab tournamentId={id} categorySlug={tournament.category_slug} />
       )}
-      {tab === 'points' && <PointsTab tournamentId={id} />}
+      {tab === 'points' && <PointsTab tournamentId={id} categorySlug={tournament.category_slug} />}
       {tab === 'gallery' && <GalleryTab tournamentId={id} />}
     </AdminSection>
   )

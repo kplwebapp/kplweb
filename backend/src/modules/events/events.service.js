@@ -1,9 +1,11 @@
+const pool = require('../../config/database');
 const ApiError = require('../../utils/ApiError');
 const slugify = require('../../utils/slugify');
 const { toPublicPath, removeUploadedFile } = require('../../utils/uploadFiles');
 const eventsRepository = require('./events.repository');
 const categoriesRepository = require('../categories/categories.repository');
 const tournamentDetailsRepository = require('../tournamentDetails/tournamentDetails.repository');
+const { KINDS } = require('./events.constants');
 
 const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
@@ -54,6 +56,8 @@ const eventsService = {
     if (changes.end_date && changes.end_date === changes.event_date) changes.end_date = null;
     checkDateRange(changes.event_date, changes.end_date);
     await checkCategory(changes.category_id, changes.kind);
+    if (changes.kind !== KINDS.TOURNAMENT) changes.requires_auction = false;
+    else changes.requires_auction = Boolean(changes.requires_auction);
     const slug = await uniqueSlug(changes.slug || changes.title);
     return eventsRepository.create({ ...changes, slug });
   },
@@ -71,6 +75,23 @@ const eventsService = {
     }
     if (changes.category_id) await checkCategory(changes.category_id, existing.kind);
     if (changes.slug) changes.slug = await uniqueSlug(changes.slug, id);
+
+    if (has(changes, 'requires_auction')) {
+      if (existing.kind !== KINDS.TOURNAMENT) {
+        changes.requires_auction = false;
+      } else if (!changes.requires_auction) {
+        const { rows } = await pool.query(
+          'SELECT auction_id FROM auctions WHERE event_id = $1 LIMIT 1',
+          [id]
+        );
+        if (rows[0]) {
+          throw new ApiError(
+            409,
+            'This tournament already has an auction. Remove or reassign that auction before turning off “Requires auction”.'
+          );
+        }
+      }
+    }
 
     return eventsRepository.update(id, changes);
   },

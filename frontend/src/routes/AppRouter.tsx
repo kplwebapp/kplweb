@@ -12,6 +12,7 @@ const TournamentRegister = lazy(() => import('@/pages/TournamentRegister'));
 const Gallery = lazy(() => import('@/pages/Gallery'));
 const Contact = lazy(() => import('@/pages/Contact'));
 const Login = lazy(() => import('@/auth/Login'));
+const SessionExpired = lazy(() => import('@/pages/SessionExpired'));
 const Register = lazy(() => import('@/auth/Register'));
 const ThankYou = lazy(() => import('@/auth/ThankYou'));
 const Logout = lazy(() => import('@/auth/Logout'));
@@ -57,6 +58,7 @@ export default function AppRouter() {
       <Suspense fallback={<PageProgress />}>
         <Routes>
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/session-expired" element={<SessionExpired />} />
           <Route path="/register" element={<RegisterRoute />} />
           <Route path="/thank-you" element={<ThankYouRoute />} />
           <Route path="/logout" element={<LogoutRoute />} />

@@ -19,6 +19,8 @@ const env = {
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
+  /** Sign-out after this many minutes with no activity (API or client idle). */
+  sessionIdleTimeoutMinutes: Math.max(1, Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES) || 15),
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim())

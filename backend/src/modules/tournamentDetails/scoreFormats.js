@@ -31,7 +31,17 @@ const normaliseSportScores = (sportSlug, data) => {
   const next = { ...data, score_data: data.score_data ?? null };
 
   if (sport === SPORT_SLUGS.cricket) {
-    next.score_data = null;
+    // Keep CricHeroes-style live/full scoreboard JSON when present.
+    const raw = data.score_data;
+    if (raw && typeof raw === 'object' && (raw.sport === 'cricket' || Array.isArray(raw.innings))) {
+      next.score_data = {
+        sport: 'cricket',
+        innings: Array.isArray(raw.innings) ? raw.innings : [],
+        live: raw.live ?? null,
+      };
+    } else {
+      next.score_data = null;
+    }
     return next;
   }
 

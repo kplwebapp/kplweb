@@ -19,8 +19,18 @@ import { readIsSuperAdmin, type AdminContext } from '@/admin/context'
 import { adminActivitiesApi, type ActivityKind, type Category } from '@/services/api/activitiesApi'
 import { UNAUTHORIZED_EVENT } from '@/services/api/client'
 import { authApi, type AuthUser } from '@/services/api/authApi'
+import { useIdleSession } from '@/hooks/useIdleSession'
+import SessionTimeoutModal from '@/components/SessionTimeoutModal/SessionTimeoutModal'
 import { ADMIN_SESSION_KEYS, adminSession, hasPermission, isStaff, roleLabel } from '@/utils/adminSession'
 import BackToTop from '@/components/common/BackToTop'
+
+const SESSION_EXPIRED_PATH = `${ADMIN_BASE}/session-expired`
+
+const endAdminSession = () => {
+  void authApi.logout().catch(() => {})
+  adminSession.clear()
+  window.location.href = SESSION_EXPIRED_PATH
+}
 
 type NavItem = { label: string; path: string; icon: string }
 
@@ -131,6 +141,8 @@ export default function DashboardLayout() {
   }, [fetchCategories])
 
   const [user, setUser] = useState<AuthUser | null>(adminSession.getUser)
+  const [idleWarning, setIdleWarning] = useState(false)
+  const [idleSecondsLeft, setIdleSecondsLeft] = useState(0)
 
   // Refresh the signed-in admin's details; roles may have changed since sign-in.
   useEffect(() => {
@@ -141,7 +153,7 @@ export default function DashboardLayout() {
         if (cancelled) return
         if (!isStaff(res.data)) {
           adminSession.clear()
-          window.location.href = `${ADMIN_BASE}/login?expired=1`
+          window.location.href = SESSION_EXPIRED_PATH
           return
         }
         adminSession.saveUser(res.data)
@@ -155,7 +167,7 @@ export default function DashboardLayout() {
   useEffect(() => {
     const signOut = () => {
       adminSession.clear()
-      window.location.href = `${ADMIN_BASE}/login?expired=1`
+      window.location.href = SESSION_EXPIRED_PATH
     }
     const onStorage = (e: StorageEvent) => {
       // logging out of the admin panel in another tab
@@ -168,6 +180,23 @@ export default function DashboardLayout() {
       window.removeEventListener('storage', onStorage)
     }
   }, [])
+
+  const { stayLoggedIn } = useIdleSession(Boolean(user), {
+    onWarn: (secondsLeft) => {
+      setIdleSecondsLeft(secondsLeft)
+      setIdleWarning(true)
+    },
+    onWarnTick: setIdleSecondsLeft,
+    onIdle: () => {
+      setIdleWarning(false)
+      endAdminSession()
+    },
+  })
+
+  const handleStayLoggedIn = () => {
+    stayLoggedIn()
+    setIdleWarning(false)
+  }
 
   const context: AdminContext = useMemo(
     () => ({ categories, categoriesLoaded, reloadCategories: fetchCategories, isSuperAdmin }),
@@ -244,6 +273,12 @@ export default function DashboardLayout() {
 
   return (
     <div className={shellClass}>
+      <SessionTimeoutModal
+        show={idleWarning}
+        secondsLeft={idleSecondsLeft}
+        onStay={handleStayLoggedIn}
+        onSignOut={endAdminSession}
+      />
       <aside id="admin-sidebar" className="admin-sidebar p-3 d-flex flex-column" onClick={closeOnNavigate}>
         <NavLink to={ADMIN_BASE} className="admin-logo mb-3" title="KPL Admin – Dashboard">
           <img src={logo} alt="Kansara Premier League – Admin" />

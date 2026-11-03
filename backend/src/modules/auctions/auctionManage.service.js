@@ -98,10 +98,10 @@ const findCricketCategoryId = async (db) => {
   return rows[0]?.category_id ?? null;
 };
 
-/** The event must be a cricket tournament; returns it. */
+/** The event must be a cricket tournament that requires an auction; returns it. */
 const loadTournament = async (db, eventId) => {
   const { rows } = await db.query(
-    `SELECT e.event_id, e.title, e.category_id, e.kind, c.slug AS category_slug
+    `SELECT e.event_id, e.title, e.category_id, e.kind, e.requires_auction, c.slug AS category_slug
      FROM events e LEFT JOIN activity_categories c ON c.category_id = e.category_id
      WHERE e.event_id = $1`,
     [eventId]
@@ -109,6 +109,9 @@ const loadTournament = async (db, eventId) => {
   const event = rows[0];
   if (!event || event.kind !== 'TOURNAMENT') throw new ApiError(400, 'Tournament not found');
   if (event.category_slug !== CRICKET_SLUG) throw new ApiError(400, 'Auctions are only available for cricket tournaments.');
+  if (!event.requires_auction) {
+    throw new ApiError(400, 'This tournament does not require an auction. Enable “Requires auction” on the tournament first.');
+  }
   return event;
 };
 
@@ -133,6 +136,10 @@ async function assertCanBuy(client, auctionId, teamId, lot, amount) {
 
   const counts = (await repo.findTeamCategoryCounts(auctionId, client))[teamId] ?? {};
   const category = categories.find((c) => c.auction_category_id === lot.auction_category_id);
+  // Cricket rule: every team may have at most one Icon Player.
+  if (category && categoryMode(category.name) === 'icon' && (counts[category.auction_category_id] ?? 0) >= 1) {
+    throw new ApiError(400, `${team.team_name} already has an Icon Player. Only one Icon Player is allowed per team.`);
+  }
   if (category?.max_per_team != null && (counts[category.auction_category_id] ?? 0) >= category.max_per_team) {
     throw new ApiError(400, `${team.team_name} already has the maximum of ${category.max_per_team} ${category.name} players.`);
   }
@@ -264,6 +271,13 @@ const buildLiveBoard = (lots, categories, teams, current) => {
       ).length;
       const round = squadRoundState({ soldOrdered: sold, teamCount: teams.length, pendingCount });
       lockedTeamIds = new Set(round.locked_team_ids);
+    } else if (currentMode === 'icon') {
+      // Cricket: one Icon Player per team.
+      lockedTeamIds = new Set(
+        lots
+          .filter((l) => l.auction_category_id === current.auction_category_id && l.status === 'SOLD' && l.team_id)
+          .map((l) => l.team_id)
+      );
     }
   }
 
@@ -276,7 +290,9 @@ const buildLiveBoard = (lots, categories, teams, current) => {
     let bid_blocked_reason = '';
     if (!current) bid_blocked_reason = 'No player on the block';
     else if (t.slots_left <= 0) bid_blocked_reason = `Squad full (${t.max_players} players)`;
-    else if (lockedTeamIds.has(t.team_id)) bid_blocked_reason = 'Already bought in this round';
+    else if (currentMode === 'icon' && lockedTeamIds.has(t.team_id)) {
+      bid_blocked_reason = 'Already has an Icon Player';
+    } else if (lockedTeamIds.has(t.team_id)) bid_blocked_reason = 'Already bought in this round';
     else if (currentMode === 'icon') bid_blocked_reason = 'Icon players are assigned, not bid';
     else if (teamBids.has(t.team_id)) bid_blocked_reason = 'Already bid on this player';
 
@@ -286,7 +302,11 @@ const buildLiveBoard = (lots, categories, teams, current) => {
       already_bid: teamBids.has(t.team_id),
       bid_amount: teamBids.get(t.team_id)?.amount ?? null,
       can_bid: Boolean(current) && currentMode !== 'icon' && !bid_blocked_reason,
-      can_assign: Boolean(current) && currentMode === 'icon' && t.slots_left > 0 && !lockedTeamIds.has(t.team_id),
+      can_assign:
+        Boolean(current) &&
+        currentMode === 'icon' &&
+        t.slots_left > 0 &&
+        !lockedTeamIds.has(t.team_id),
     };
   });
 
@@ -331,6 +351,36 @@ const SETTING_FIELDS = [
 /** Settings that may still change once bidding has started. */
 const LIVE_EDITABLE = ['title', 'description', 'rules', 'auction_date', 'venue', 'min_bid_increment'];
 
+/** Cricket auctions: Icon Player is one per team (pool size = team count). */
+const normalizeCategoryInput = (c) => {
+  const name = String(c.name || '').trim();
+  if (categoryMode(name) === 'icon') {
+    return { ...c, name, min_per_team: 1, max_per_team: 1 };
+  }
+  return { ...c, name };
+};
+
+const countIconLots = async (client, auctionId, iconCategoryId) => {
+  const { rows } = await client.query(
+    `SELECT COUNT(*)::int AS n FROM auction_lots
+     WHERE auction_id = $1 AND auction_category_id = $2
+       AND is_eligible AND status <> 'WITHDRAWN'`,
+    [auctionId, iconCategoryId]
+  );
+  return rows[0].n;
+};
+
+const assertIconPoolFitsTeams = async (client, auctionId, iconCategoryId, teamCount, adding = 0) => {
+  if (!iconCategoryId || teamCount < 1) return;
+  const current = await countIconLots(client, auctionId, iconCategoryId);
+  if (current + adding > teamCount) {
+    throw new ApiError(
+      409,
+      `Icon Player is cricket-only and limited to one per team. You can have at most ${teamCount} Icon Player(s) for ${teamCount} team(s) (already ${current} in the pool).`
+    );
+  }
+};
+
 const service = {
   mutate,
 
@@ -359,7 +409,8 @@ const service = {
       );
       auctionId = rows[0].auction_id;
 
-      for (const [i, c] of (body.categories ?? []).entries()) {
+      for (const [i, raw] of (body.categories ?? []).entries()) {
+        const c = normalizeCategoryInput(raw);
         await client.query(
           `INSERT INTO auction_categories (auction_id, name, display_order, base_price, min_per_team, max_per_team)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -441,11 +492,12 @@ const service = {
   setCategories(auctionId, categories, actorId) {
     return mutate(auctionId, actorId, async ({ client, auction, log }) => {
       assertStatus(auction, SETUP_STATUSES, 'Changing categories');
-      const names = categories.map((c) => c.name.trim().toLowerCase());
+      const normalized = categories.map(normalizeCategoryInput);
+      const names = normalized.map((c) => c.name.toLowerCase());
       if (new Set(names).size !== names.length) throw new ApiError(400, 'Category names must be different.');
 
       const existing = await repo.findCategories(auctionId, client);
-      const keepIds = categories.map((c) => c.auction_category_id).filter(Boolean);
+      const keepIds = normalized.map((c) => c.auction_category_id).filter(Boolean);
       for (const id of keepIds) {
         if (!existing.some((c) => c.auction_category_id === id)) throw new ApiError(400, 'Unknown category');
       }
@@ -458,11 +510,11 @@ const service = {
       }
 
       // Temporary names avoid clashing with the unique (auction, name) index while renaming.
-      for (const c of categories.filter((x) => x.auction_category_id)) {
+      for (const c of normalized.filter((x) => x.auction_category_id)) {
         await client.query(`UPDATE auction_categories SET name = '~' || auction_category_id WHERE auction_category_id = $1`, [c.auction_category_id]);
       }
-      for (const [i, c] of categories.entries()) {
-        const values = [c.name.trim(), i, c.base_price ?? null, c.min_per_team ?? 0, c.max_per_team ?? null];
+      for (const [i, c] of normalized.entries()) {
+        const values = [c.name, i, c.base_price ?? null, c.min_per_team ?? 0, c.max_per_team ?? null];
         if (c.auction_category_id) {
           await client.query(
             `UPDATE auction_categories SET name = $2, display_order = $3, base_price = $4, min_per_team = $5,
@@ -478,7 +530,7 @@ const service = {
           );
         }
       }
-      log('CATEGORIES_UPDATED', { details: { before: existing, after: categories } });
+      log('CATEGORIES_UPDATED', { details: { before: existing, after: normalized } });
       return repo.findCategories(auctionId, client);
     });
   },
@@ -539,51 +591,132 @@ const service = {
         }
       }
       for (const t of removed) log('TEAM_REMOVED', { team_id: t.team_id });
+
+      // Keep Icon Player at one-per-team whenever the squad list changes.
+      await client.query(
+        `UPDATE auction_categories
+         SET min_per_team = 1, max_per_team = 1, updated_at = CURRENT_TIMESTAMP
+         WHERE auction_id = $1 AND lower(regexp_replace(name, '[^a-z0-9]+', '', 'g')) LIKE '%icon%'`,
+        [auctionId]
+      );
+
       return repo.findTeams(auctionId, client);
     });
   },
 
   // ---------------- Player pool ----------------
 
-  addPlayers(auctionId, { user_ids: userIds, auction_category_id: categoryId }, actorId) {
+  addPlayers(auctionId, { user_ids: userIds = [], lot_ids: lotIds = [], auction_category_id: categoryId }, actorId) {
     return mutate(auctionId, actorId, async ({ client, auction, log }) => {
       assertStatus(auction, OPEN_STATUSES, 'Adding players');
       if (!auction.event_id) throw new ApiError(400, 'Link the auction to a tournament first; its registrations form the player pool.');
 
       let basePrice = auction.default_base_price;
+      let iconCategoryId = null;
       if (categoryId) {
         const { rows } = await client.query(
-          'SELECT base_price FROM auction_categories WHERE auction_id = $1 AND auction_category_id = $2',
+          'SELECT name, base_price FROM auction_categories WHERE auction_id = $1 AND auction_category_id = $2',
           [auctionId, categoryId]
         );
         if (!rows[0]) throw new ApiError(400, 'Unknown category');
         basePrice = rows[0].base_price ?? basePrice;
+        if (categoryMode(rows[0].name) === 'icon') iconCategoryId = categoryId;
       }
-
-      const { rows: regs } = await client.query(
-        `SELECT r.registration_id, u.user_id, COALESCE(u.full_name, u.first_name || ' ' || u.last_name) AS full_name, u.vibhaag
-         FROM tournament_registrations r JOIN users u ON u.user_id = r.user_id
-         WHERE r.event_id = $1 AND r.user_id = ANY($2)
-           AND NOT EXISTS (SELECT 1 FROM auction_lots l WHERE l.auction_id = $3 AND l.user_id = r.user_id)
-         ORDER BY full_name`,
-        [auction.event_id, userIds, auctionId]
-      );
-      if (regs.length === 0) throw new ApiError(400, 'None of these members can be added: they are not registered for the tournament or are already in the pool.');
-
-      const { rows: max } = await client.query('SELECT COALESCE(MAX(lot_number), 0) AS n FROM auction_lots WHERE auction_id = $1', [auctionId]);
-      let lotNumber = Number(max[0].n);
-      const added = [];
-      for (const r of regs) {
-        lotNumber += 1;
-        const { rows } = await client.query(
-          `INSERT INTO auction_lots (auction_id, lot_number, player_name, vibhaag, base_price, user_id, registration_id, auction_category_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING lot_id`,
-          [auctionId, lotNumber, r.full_name, r.vibhaag, basePrice, r.user_id, r.registration_id, categoryId ?? null]
+      if (iconCategoryId) {
+        const teams = await repo.findTeams(auctionId, client);
+        await assertIconPoolFitsTeams(
+          client,
+          auctionId,
+          iconCategoryId,
+          teams.length,
+          userIds.length + lotIds.length
         );
-        added.push(rows[0].lot_id);
       }
-      log('PLAYERS_ADDED', { details: { lot_ids: added, user_ids: regs.map((r) => r.user_id) } });
-      return { added: added.length, skipped: userIds.length - added.length };
+
+      const added = [];
+      const restoreWithdrawn = async (lotId, extras = {}) => {
+        await client.query(
+          `UPDATE auction_lots SET
+             status = 'PENDING',
+             base_price = $3,
+             auction_category_id = $4,
+             is_eligible = TRUE,
+             eligibility_note = NULL,
+             registration_id = COALESCE($5, registration_id),
+             player_name = COALESCE($6, player_name),
+             vibhaag = COALESCE($7, vibhaag),
+             updated_at = CURRENT_TIMESTAMP
+           WHERE lot_id = $1 AND auction_id = $2 AND status = 'WITHDRAWN'`,
+          [
+            lotId,
+            auctionId,
+            extras.base_price ?? basePrice,
+            categoryId ?? null,
+            extras.registration_id ?? null,
+            extras.player_name ?? null,
+            extras.vibhaag ?? null,
+          ]
+        );
+        added.push(lotId);
+      };
+
+      if (lotIds.length) {
+        const { rows: withdrawn } = await client.query(
+          `SELECT lot_id FROM auction_lots
+           WHERE auction_id = $1 AND lot_id = ANY($2::int[]) AND status = 'WITHDRAWN'`,
+          [auctionId, lotIds]
+        );
+        for (const row of withdrawn) {
+          await restoreWithdrawn(row.lot_id);
+        }
+      }
+
+      if (userIds.length) {
+        const { rows: regs } = await client.query(
+          `SELECT r.registration_id, u.user_id, COALESCE(u.full_name, u.first_name || ' ' || u.last_name) AS full_name, u.vibhaag,
+                  w.lot_id AS withdrawn_lot_id
+           FROM tournament_registrations r
+           JOIN users u ON u.user_id = r.user_id
+           LEFT JOIN auction_lots w ON w.auction_id = $3 AND w.user_id = r.user_id AND w.status = 'WITHDRAWN'
+           WHERE r.event_id = $1 AND r.user_id = ANY($2)
+             AND NOT EXISTS (
+               SELECT 1 FROM auction_lots l
+               WHERE l.auction_id = $3 AND l.user_id = r.user_id AND l.status <> 'WITHDRAWN'
+             )
+           ORDER BY full_name`,
+          [auction.event_id, userIds, auctionId]
+        );
+
+        const { rows: max } = await client.query(
+          'SELECT COALESCE(MAX(lot_number), 0) AS n FROM auction_lots WHERE auction_id = $1',
+          [auctionId]
+        );
+        let lotNumber = Number(max[0].n);
+        for (const r of regs) {
+          if (r.withdrawn_lot_id) {
+            await restoreWithdrawn(r.withdrawn_lot_id, {
+              registration_id: r.registration_id,
+              player_name: r.full_name,
+              vibhaag: r.vibhaag,
+              base_price: basePrice,
+            });
+            continue;
+          }
+          lotNumber += 1;
+          const { rows } = await client.query(
+            `INSERT INTO auction_lots (auction_id, lot_number, player_name, vibhaag, base_price, user_id, registration_id, auction_category_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING lot_id`,
+            [auctionId, lotNumber, r.full_name, r.vibhaag, basePrice, r.user_id, r.registration_id, categoryId ?? null]
+          );
+          added.push(rows[0].lot_id);
+        }
+      }
+
+      if (added.length === 0) {
+        throw new ApiError(400, 'None of these players can be added: they are not registered for the tournament or are already in the pool.');
+      }
+      log('PLAYERS_ADDED', { details: { lot_ids: added, user_ids: userIds, restored_lot_ids: lotIds } });
+      return { added: added.length, skipped: userIds.length + lotIds.length - added.length };
     });
   },
 
@@ -596,10 +729,14 @@ const service = {
       }
       if (body.auction_category_id) {
         const { rows } = await client.query(
-          'SELECT 1 FROM auction_categories WHERE auction_id = $1 AND auction_category_id = $2',
+          'SELECT auction_category_id, name FROM auction_categories WHERE auction_id = $1 AND auction_category_id = $2',
           [auctionId, body.auction_category_id]
         );
         if (!rows[0]) throw new ApiError(400, 'Unknown category');
+        if (categoryMode(rows[0].name) === 'icon' && lot.auction_category_id !== body.auction_category_id) {
+          const teams = await repo.findTeams(auctionId, client);
+          await assertIconPoolFitsTeams(client, auctionId, body.auction_category_id, teams.length, 1);
+        }
       }
       const changes = pick(body, ['auction_category_id', 'base_price', 'is_eligible', 'eligibility_note']);
       const keys = Object.keys(changes);
@@ -637,7 +774,10 @@ const service = {
   reorder(auctionId, lotIds, actorId) {
     return mutate(auctionId, actorId, async ({ client, auction, log }) => {
       assertStatus(auction, OPEN_STATUSES, 'Reordering');
-      const { rows } = await client.query('SELECT lot_id FROM auction_lots WHERE auction_id = $1 FOR UPDATE', [auctionId]);
+      const { rows } = await client.query(
+        `SELECT lot_id FROM auction_lots WHERE auction_id = $1 AND status <> 'WITHDRAWN' FOR UPDATE`,
+        [auctionId]
+      );
       const all = rows.map((r) => r.lot_id);
       if (lotIds.length !== all.length || !all.every((id) => lotIds.includes(id))) {
         throw new ApiError(400, 'The new order must list every player in the pool exactly once.');
@@ -731,6 +871,16 @@ const service = {
         const categories = await repo.findCategories(auctionId, client);
         if (categories.length && rows[0].uncategorised > 0) {
           throw new ApiError(409, `${rows[0].uncategorised} eligible player(s) have no category yet.`);
+        }
+        const iconCat = categories.find((c) => categoryMode(c.name) === 'icon');
+        if (iconCat) {
+          const iconCount = await countIconLots(client, auctionId, iconCat.auction_category_id);
+          if (iconCount !== teams.length) {
+            throw new ApiError(
+              409,
+              `Icon Player is cricket-only and must equal the number of teams (${teams.length}). The pool currently has ${iconCount}.`
+            );
+          }
         }
       }
 
@@ -1095,10 +1245,12 @@ const service = {
 
   async listTournaments() {
     const { rows } = await pool.query(
-      `SELECT e.event_id, e.title, e.event_date, e.is_archived,
+      `SELECT e.event_id, e.title, e.event_date, e.is_archived, e.requires_auction,
               (SELECT a.auction_id FROM auctions a WHERE a.event_id = e.event_id) AS auction_id
        FROM events e JOIN activity_categories c ON c.category_id = e.category_id
        WHERE e.kind = 'TOURNAMENT' AND c.slug = $1
+         AND (e.requires_auction = TRUE
+              OR EXISTS (SELECT 1 FROM auctions a WHERE a.event_id = e.event_id))
        ORDER BY e.event_date DESC NULLS LAST, e.event_id DESC`,
       [CRICKET_SLUG]
     );

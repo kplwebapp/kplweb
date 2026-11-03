@@ -123,26 +123,40 @@ export const newCategory = (): CategoryDraft => ({
   max_per_team: '',
 })
 
-export const DEFAULT_CATEGORIES: CategoryDraft[] = AUCTION_PLAYER_CATEGORIES.map((name) => ({ ...newCategory(), key: name, name }))
+export const DEFAULT_CATEGORIES: CategoryDraft[] = AUCTION_PLAYER_CATEGORIES.map((name) => ({
+  ...newCategory(),
+  key: name,
+  name,
+  // Cricket: one Icon Player per team (pool size = team count).
+  ...(name === 'Icon Player' ? { min_per_team: '1', max_per_team: '1' } : {}),
+}))
+
+export const isIconCategoryName = (name: string) => /icon/i.test(name)
 
 export const categoriesFromApi = (list: AuctionCategory[]): CategoryDraft[] =>
-  list.map((c) => ({
-    key: `id-${c.auction_category_id}`,
-    auction_category_id: c.auction_category_id,
-    name: c.name,
-    base_price: c.base_price == null ? '' : String(c.base_price),
-    min_per_team: String(c.min_per_team),
-    max_per_team: c.max_per_team == null ? '' : String(c.max_per_team),
-  }))
+  list.map((c) => {
+    const icon = isIconCategoryName(c.name)
+    return {
+      key: `id-${c.auction_category_id}`,
+      auction_category_id: c.auction_category_id,
+      name: c.name,
+      base_price: c.base_price == null ? '' : String(c.base_price),
+      min_per_team: icon ? '1' : String(c.min_per_team),
+      max_per_team: icon ? '1' : c.max_per_team == null ? '' : String(c.max_per_team),
+    }
+  })
 
 export function categoriesToInput(list: CategoryDraft[]): CategoryInput[] {
-  return list.map((c) => ({
-    ...(c.auction_category_id ? { auction_category_id: c.auction_category_id } : {}),
-    name: c.name.trim(),
-    base_price: c.base_price === '' ? null : int(c.base_price),
-    min_per_team: c.min_per_team === '' ? 0 : int(c.min_per_team),
-    max_per_team: c.max_per_team === '' ? null : int(c.max_per_team),
-  }))
+  return list.map((c) => {
+    const icon = isIconCategoryName(c.name)
+    return {
+      ...(c.auction_category_id ? { auction_category_id: c.auction_category_id } : {}),
+      name: c.name.trim(),
+      base_price: c.base_price === '' ? null : int(c.base_price),
+      min_per_team: icon ? 1 : c.min_per_team === '' ? 0 : int(c.min_per_team),
+      max_per_team: icon ? 1 : c.max_per_team === '' ? null : int(c.max_per_team),
+    }
+  })
 }
 
 export function validateCategories(list: CategoryDraft[]): string {

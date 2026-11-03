@@ -1,4 +1,7 @@
 const pool = require('../../config/database');
+const env = require('../../config/env');
+
+const idleMinutes = () => env.sessionIdleTimeoutMinutes;
 
 const create = async ({
   sessionId,
@@ -28,19 +31,35 @@ const findActiveById = async (sessionId) => {
      FROM login_sessions
      WHERE session_id = $1
        AND revoked_at IS NULL
-       AND expires_at > CURRENT_TIMESTAMP`,
-    [sessionId]
+       AND expires_at > CURRENT_TIMESTAMP
+       AND last_seen_at > CURRENT_TIMESTAMP - make_interval(mins => $2::int)`,
+    [sessionId, idleMinutes()]
+  );
+  return rows[0] || null;
+};
+
+/** Revoke a session that timed out from idle (still present but past last_seen window). */
+const revokeIfIdle = async (sessionId) => {
+  const { rows } = await pool.query(
+    `UPDATE login_sessions
+     SET revoked_at = CURRENT_TIMESTAMP
+     WHERE session_id = $1
+       AND revoked_at IS NULL
+       AND last_seen_at <= CURRENT_TIMESTAMP - make_interval(mins => $2::int)
+     RETURNING session_id`,
+    [sessionId, idleMinutes()]
   );
   return rows[0] || null;
 };
 
 const touchLastSeen = async (sessionId) => {
+  // Refresh often enough that short idle windows still track activity accurately.
   await pool.query(
     `UPDATE login_sessions
      SET last_seen_at = CURRENT_TIMESTAMP
      WHERE session_id = $1
        AND revoked_at IS NULL
-       AND last_seen_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes'`,
+       AND last_seen_at < CURRENT_TIMESTAMP - INTERVAL '1 minute'`,
     [sessionId]
   );
 };
@@ -94,8 +113,9 @@ const listActiveForUser = async (userId) => {
      WHERE user_id = $1
        AND revoked_at IS NULL
        AND expires_at > CURRENT_TIMESTAMP
+       AND last_seen_at > CURRENT_TIMESTAMP - make_interval(mins => $2::int)
      ORDER BY last_seen_at DESC`,
-    [userId]
+    [userId, idleMinutes()]
   );
   return rows;
 };
@@ -103,6 +123,7 @@ const listActiveForUser = async (userId) => {
 module.exports = {
   create,
   findActiveById,
+  revokeIfIdle,
   touchLastSeen,
   rotateRefresh,
   revoke,

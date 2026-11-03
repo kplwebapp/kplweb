@@ -1,0 +1,76 @@
+.member-session-expired-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: linear-gradient(145deg, #0b3d2e 0%, #146c43 50%, #198754 100%);
+}
+
+.member-session-expired-page__card {
+  width: min(440px, 100%);
+  text-align: center;
+  padding: 2rem 1.75rem 1.75rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+.member-session-expired-page__art {
+  line-height: 0;
+  margin-bottom: 0.75rem;
+}
+
+.member-session-expired-page__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #92400e;
+  margin: 0 0 0.5rem;
+}
+
+.member-session-expired-page__lead {
+  margin: 0 0 1.25rem;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.member-session-expired-page__steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  margin: 0 0 1.5rem;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(165deg, #fffbeb, #fef3c7);
+  border: 1px solid #f59e0b;
+  color: #78350f;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.member-session-expired-page__steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.member-session-expired-page__steps span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: #92400e;
+  color: #fff;
+  font-size: 0.7rem;
+}
+
+.member-session-expired-page__steps .is-here span {
+  background: #b45309;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+}

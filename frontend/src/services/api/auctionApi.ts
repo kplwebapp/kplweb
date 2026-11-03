@@ -324,9 +324,11 @@ export interface AuctionDetail {
 }
 
 export interface Candidate {
-  registration_id: number;
-  registered_at: string;
-  user_id: number;
+  registration_id: number | null;
+  registered_at: string | null;
+  user_id: number | null;
+  /** Present for withdrawn dummy lots (no linked member). */
+  withdrawn_lot_id?: number | null;
   full_name: string;
   vibhaag: string | null;
   profile_photo: string | null;
@@ -445,11 +447,19 @@ export const auctionAdminApi = {
     apiClient.put<ApiEnvelope<AuctionTeam[]>>(`${base(id)}/teams`, { teams }),
 
   candidates: (id: number) => apiClient.get<ApiEnvelope<Candidate[]>>(`${base(id)}/candidates`),
-  addPlayers: (id: number, userIds: number[], categoryId: number | null) =>
-    apiClient.post<ApiEnvelope<{ added: number; skipped: number }>>(`${base(id)}/players`, {
+  addPlayers: (
+    id: number,
+    selection: { userIds?: number[]; lotIds?: number[] } | number[],
+    categoryId: number | null,
+  ) => {
+    const userIds = Array.isArray(selection) ? selection : (selection.userIds ?? [])
+    const lotIds = Array.isArray(selection) ? [] : (selection.lotIds ?? [])
+    return apiClient.post<ApiEnvelope<{ added: number; skipped: number }>>(`${base(id)}/players`, {
       user_ids: userIds,
+      lot_ids: lotIds,
       auction_category_id: categoryId,
-    }),
+    })
+  },
   updateLot: (
     id: number,
     lotId: number,

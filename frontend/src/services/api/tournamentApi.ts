@@ -21,11 +21,50 @@ export type MatchStage = 'LEAGUE' | 'QUARTER_FINAL' | 'SEMI_FINAL' | 'FINAL';
 export type MatchStatus = 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'NO_RESULT';
 export type MatchResult = 'TEAM1' | 'TEAM2' | 'TIE';
 
-export type MatchScoreData = {
-  sport: 'cricket' | 'carrom' | 'chess';
+export type CricketBattingRow = {
+  name: string;
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  dismissal: string;
+};
+
+export type CricketBowlingRow = {
+  name: string;
+  overs: number;
+  maidens: number;
+  runs: number;
+  wickets: number;
+};
+
+export type CricketInningsScore = {
+  number: 1 | 2;
+  batting_team_id: number;
+  bowling_team_id: number;
+  runs: number;
+  wickets: number;
+  overs: number;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  extras: { total: number; wides: number; noballs: number; byes: number; legbyes: number };
+  batting: CricketBattingRow[];
+  bowling: CricketBowlingRow[];
+  fall_of_wickets: string[];
+};
+
+export type CricketScoreboardData = {
+  sport: 'cricket';
+  innings: CricketInningsScore[];
+  live: { batting_team_id: number; current_innings: number } | null;
+};
+
+export type PointsScoreData = {
+  sport: 'carrom' | 'chess';
   team1_points: number | null;
   team2_points: number | null;
-} | null;
+};
+
+export type MatchScoreData = CricketScoreboardData | PointsScoreData | null;
 
 export type MatchScoreLabel = {
   team1: string;

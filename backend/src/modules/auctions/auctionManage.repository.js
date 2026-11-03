@@ -222,24 +222,40 @@ const repo = {
     return rows[0] || null;
   },
 
-  /** Members registered for the auction's tournament who are not yet in its pool. */
+  /**
+   * Players available to add: tournament registrants not in the active pool,
+   * plus withdrawn dummy lots (no user_id) so remove-from-pool can put them back here.
+   */
   findCandidates: async (auctionId, eventId, db = pool) => {
     const { rows } = await db.query(
-      `SELECT r.registration_id, r.registered_at, u.user_id,
-              COALESCE(u.full_name, u.first_name || ' ' || u.last_name) AS full_name,
-              u.vibhaag, u.profile_photo,
-              p.answers->>'batting_style' AS batting_style,
-              p.answers->>'bowling_style' AS bowling_style,
-              p.answers->>'is_wicketkeeper' AS is_wicketkeeper
-       FROM tournament_registrations r
-       JOIN users u ON u.user_id = r.user_id
-       LEFT JOIN LATERAL (
-         SELECT answers FROM member_persona_profiles mp
-         WHERE mp.user_id = u.user_id AND mp.persona_type = 'cricketer'
-         ORDER BY mp.persona_profile_id LIMIT 1
-       ) p ON TRUE
-       WHERE r.event_id = $2
-         AND NOT EXISTS (SELECT 1 FROM auction_lots l WHERE l.auction_id = $1 AND l.user_id = r.user_id)
+      `SELECT * FROM (
+         SELECT r.registration_id, r.registered_at, u.user_id,
+                COALESCE(u.full_name, u.first_name || ' ' || u.last_name) AS full_name,
+                u.vibhaag, u.profile_photo,
+                p.answers->>'batting_style' AS batting_style,
+                p.answers->>'bowling_style' AS bowling_style,
+                p.answers->>'is_wicketkeeper' AS is_wicketkeeper,
+                NULL::int AS withdrawn_lot_id
+         FROM tournament_registrations r
+         JOIN users u ON u.user_id = r.user_id
+         LEFT JOIN LATERAL (
+           SELECT answers FROM member_persona_profiles mp
+           WHERE mp.user_id = u.user_id AND mp.persona_type = 'cricketer'
+           ORDER BY mp.persona_profile_id LIMIT 1
+         ) p ON TRUE
+         WHERE r.event_id = $2
+           AND NOT EXISTS (
+             SELECT 1 FROM auction_lots l
+             WHERE l.auction_id = $1 AND l.user_id = r.user_id AND l.status <> 'WITHDRAWN'
+           )
+         UNION ALL
+         SELECT NULL::int AS registration_id, l.updated_at AS registered_at, NULL::int AS user_id,
+                l.player_name AS full_name, l.vibhaag, NULL::text AS profile_photo,
+                NULL::text AS batting_style, NULL::text AS bowling_style, NULL::text AS is_wicketkeeper,
+                l.lot_id AS withdrawn_lot_id
+         FROM auction_lots l
+         WHERE l.auction_id = $1 AND l.status = 'WITHDRAWN' AND l.user_id IS NULL
+       ) c
        ORDER BY full_name`,
       [auctionId, eventId]
     );

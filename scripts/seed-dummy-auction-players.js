@@ -18,9 +18,8 @@ const STANDARD_CATEGORIES = [
   'Other Players',
 ];
 
-/** How many dummy players per category (total 90). */
+/** How many dummy players per non-icon category. Icon count = participating team count. */
 const COUNTS = {
-  'Icon Player': 10,
   'All Rounder': 20,
   Batsman: 20,
   Bowlers: 20,
@@ -48,7 +47,7 @@ function parseAuctionId() {
 }
 
 function playerName(i) {
-  return `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]} ${i + 1}`;
+  return `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`;
 }
 
 async function ensureCategories(client, auctionId) {
@@ -123,6 +122,21 @@ async function main() {
     await client.query('BEGIN');
     const cats = await ensureCategories(client, auction.auction_id);
 
+    const { rows: teamRows } = await client.query(
+      `SELECT COUNT(*)::int AS n FROM auction_teams WHERE auction_id = $1`,
+      [auction.auction_id]
+    );
+    const teamCount = teamRows[0].n;
+    if (teamCount < 1) {
+      throw new Error('Add participating teams first — Icon Player count equals the number of teams.');
+    }
+    await client.query(
+      `UPDATE auction_categories
+       SET min_per_team = 1, max_per_team = 1, updated_at = CURRENT_TIMESTAMP
+       WHERE auction_id = $1 AND lower(regexp_replace(name, '[^a-z0-9]+', '', 'g')) LIKE '%icon%'`,
+      [auction.auction_id]
+    );
+
     const { rows: maxLot } = await client.query(
       `SELECT COALESCE(MAX(lot_number), 0)::int AS n FROM auction_lots WHERE auction_id = $1`,
       [auction.auction_id]
@@ -132,7 +146,8 @@ async function main() {
     let nameIndex = 0;
 
     for (const cat of cats) {
-      const count = COUNTS[cat.name] ?? 20;
+      const isIcon = /icon/i.test(cat.name);
+      const count = isIcon ? teamCount : (COUNTS[cat.name] ?? 20);
       for (let i = 0; i < count; i += 1) {
         lotNumber += 1;
         const name = playerName(nameIndex);

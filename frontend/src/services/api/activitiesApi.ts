@@ -29,6 +29,8 @@ export interface Activity {
   status: ActivityStatus;
   venue: string | null;
   image_url: string | null;
+  /** Cricket tournaments: when true, this event can be linked to an auction. */
+  requires_auction: boolean;
   is_archived: boolean;
 }
 
@@ -39,6 +41,7 @@ export type ActivityInput = {
   event_date: string;
   end_date: string;
   venue: string;
+  requires_auction?: boolean;
 };
 
 export interface RegisteredPlayer {

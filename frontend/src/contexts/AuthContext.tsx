@@ -1,5 +1,8 @@
 import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
 import { authApi, type AuthUser } from '../services/api/authApi';
+import { useIdleSession } from '../hooks/useIdleSession';
+import SessionTimeoutModal from '../components/SessionTimeoutModal/SessionTimeoutModal';
+import { isAdminArea } from '../utils/adminSession';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -23,6 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
+  const [idleWarning, setIdleWarning] = useState(false);
+  const [idleSecondsLeft, setIdleSecondsLeft] = useState(0);
 
   const login = useCallback((accessToken: string, refreshToken: string, authUser: AuthUser) => {
     localStorage.setItem('accessToken', accessToken);
@@ -46,12 +51,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
   }, []);
 
+  const isAuthenticated = !!user && !!localStorage.getItem('accessToken');
+  // Admin idle is owned by DashboardLayout — avoid double timers on /admin.
+  const memberIdleEnabled = isAuthenticated && !isAdminArea();
+
+  const endMemberSession = useCallback(() => {
+    setIdleWarning(false);
+    void logout().then(() => {
+      window.location.href = '/session-expired';
+    });
+  }, [logout]);
+
+  const { stayLoggedIn } = useIdleSession(memberIdleEnabled, {
+    onWarn: (secondsLeft) => {
+      setIdleSecondsLeft(secondsLeft);
+      setIdleWarning(true);
+    },
+    onWarnTick: setIdleSecondsLeft,
+    onIdle: endMemberSession,
+  });
+
+  const handleStayLoggedIn = () => {
+    stayLoggedIn();
+    setIdleWarning(false);
+  };
+
   const value = useMemo(
-    () => ({ user, isAuthenticated: !!user && !!localStorage.getItem('accessToken'), login, logout, updateUser }),
-    [user, login, logout, updateUser]
+    () => ({ user, isAuthenticated, login, logout, updateUser }),
+    [user, isAuthenticated, login, logout, updateUser]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <SessionTimeoutModal
+        show={idleWarning && memberIdleEnabled}
+        secondsLeft={idleSecondsLeft}
+        onStay={handleStayLoggedIn}
+        onSignOut={endMemberSession}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

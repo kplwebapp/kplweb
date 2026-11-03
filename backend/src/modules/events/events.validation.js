@@ -29,6 +29,7 @@ const createEventSchema = Joi.object({
   event_date: isoDate,
   end_date: isoDate,
   venue: Joi.string().max(200).allow('', null),
+  requires_auction: Joi.boolean().default(false),
 });
 
 const updateEventSchema = Joi.object({
@@ -39,6 +40,7 @@ const updateEventSchema = Joi.object({
   event_date: isoDate,
   end_date: isoDate,
   venue: Joi.string().max(200).allow('', null),
+  requires_auction: Joi.boolean(),
 }).min(1);
 
 module.exports = { publicListQuerySchema, manageListQuerySchema, createEventSchema, updateEventSchema };

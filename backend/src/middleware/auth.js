@@ -20,7 +20,8 @@ const authenticate = async (req, res, next) => {
 
     const session = await loginSessionsRepository.findActiveById(payload.sid);
     if (!session || Number(session.user_id) !== Number(payload.sub)) {
-      throw new ApiError(401, 'Session expired. Please sign in again.');
+      await loginSessionsRepository.revokeIfIdle(payload.sid);
+      throw new ApiError(401, 'Session expired due to inactivity. Please sign in again.');
     }
 
     const { rows } = await pool.query(

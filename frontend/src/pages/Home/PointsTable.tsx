@@ -97,6 +97,7 @@ export default function PointsTable() {
                           <th>Team</th>
                           <th>Played</th>
                           <th>Won</th>
+                          <th title="Net run rate">NRR</th>
                           <th>Pts</th>
                         </tr>
                       </thead>
@@ -111,6 +112,10 @@ export default function PointsTable() {
                             </td>
                             <td>{row.matches_played}</td>
                             <td>{row.matches_won}</td>
+                            <td>
+                              {Number(row.net_run_rate) > 0 ? '+' : ''}
+                              {Number(row.net_run_rate).toFixed(3)}
+                            </td>
                             <td><strong>{row.points}</strong></td>
                           </tr>
                         ))}
