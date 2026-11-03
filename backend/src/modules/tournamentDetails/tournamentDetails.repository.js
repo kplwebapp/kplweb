@@ -1,25 +1,60 @@
 const pool = require('../../config/database');
 
-const MATCH_SELECT = `SELECT m.match_id, m.event_id, m.team1_id, m.team2_id,
+const OPTIONAL_MATCH_FIELDS = ['match_time', 'venue', 'score_data'];
+
+let matchSchemaPromise;
+
+/** Detect optional tournament_matches columns so deploys still work before migration 017. */
+const loadMatchSchema = async () => {
+  if (!matchSchemaPromise) {
+    matchSchemaPromise = (async () => {
+      const { rows } = await pool.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'tournament_matches'
+           AND column_name = ANY($1::text[])`,
+        [OPTIONAL_MATCH_FIELDS]
+      );
+      const available = new Set(rows.map((r) => r.column_name));
+      // Keep a stable insert order: core schedule, optional schedule, result/scores, summary.
+      const ordered = [
+        'team1_id', 'team2_id', 'match_date',
+        ...(available.has('match_time') ? ['match_time'] : []),
+        ...(available.has('venue') ? ['venue'] : []),
+        'stage', 'status', 'result',
+        'team1_runs', 'team1_wickets', 'team1_overs',
+        'team2_runs', 'team2_wickets', 'team2_overs',
+        ...(available.has('score_data') ? ['score_data'] : []),
+        'summary',
+      ];
+      const select = `SELECT m.match_id, m.event_id, m.team1_id, m.team2_id,
     t1.team_name AS team1_name, t2.team_name AS team2_name,
     to_char(m.match_date, 'YYYY-MM-DD') AS match_date,
-    to_char(m.match_time, 'HH24:MI') AS match_time,
-    m.venue, m.stage, m.status, m.result,
+    ${available.has('match_time') ? "to_char(m.match_time, 'HH24:MI') AS match_time" : 'NULL::text AS match_time'},
+    ${available.has('venue') ? 'm.venue' : 'NULL::text AS venue'},
+    m.stage, m.status, m.result,
     m.team1_runs, m.team1_wickets, m.team1_overs::float AS team1_overs,
     m.team2_runs, m.team2_wickets, m.team2_overs::float AS team2_overs,
-    m.score_data, m.summary
+    ${available.has('score_data') ? 'm.score_data' : 'NULL::jsonb AS score_data'},
+    m.summary
   FROM tournament_matches m
   JOIN teams t1 ON t1.team_id = m.team1_id
   JOIN teams t2 ON t2.team_id = m.team2_id`;
+      const orderBy = available.has('match_time')
+        ? 'ORDER BY m.match_date ASC NULLS LAST, m.match_time ASC NULLS LAST, m.match_id ASC'
+        : 'ORDER BY m.match_date ASC NULLS LAST, m.match_id ASC';
+      return { fields: ordered, select, orderBy, available };
+    })().catch((err) => {
+      matchSchemaPromise = null;
+      throw err;
+    });
+  }
+  return matchSchemaPromise;
+};
 
-const MATCH_FIELDS = [
-  'team1_id', 'team2_id', 'match_date', 'match_time', 'venue', 'stage', 'status', 'result',
-  'team1_runs', 'team1_wickets', 'team1_overs',
-  'team2_runs', 'team2_wickets', 'team2_overs', 'score_data', 'summary',
-];
-
-const matchValues = (data) =>
-  MATCH_FIELDS.map((field) => {
+const matchValues = (fields, data) =>
+  fields.map((field) => {
     if (field === 'score_data') {
       return data.score_data == null ? null : data.score_data;
     }
@@ -95,37 +130,43 @@ const tournamentDetailsRepository = {
 
   // ---------- matches ----------
   findMatches: async (eventId) => {
+    const schema = await loadMatchSchema();
     const { rows } = await pool.query(
-      `${MATCH_SELECT} WHERE m.event_id = $1
-       ORDER BY m.match_date ASC NULLS LAST, m.match_time ASC NULLS LAST, m.match_id ASC`,
+      `${schema.select} WHERE m.event_id = $1 ${schema.orderBy}`,
       [eventId]
     );
     return rows;
   },
 
   findMatch: async (eventId, matchId) => {
-    const { rows } = await pool.query(`${MATCH_SELECT} WHERE m.event_id = $1 AND m.match_id = $2`, [eventId, matchId]);
+    const schema = await loadMatchSchema();
+    const { rows } = await pool.query(
+      `${schema.select} WHERE m.event_id = $1 AND m.match_id = $2`,
+      [eventId, matchId]
+    );
     return rows[0] || null;
   },
 
   createMatch: async (eventId, data) => {
+    const schema = await loadMatchSchema();
     const { rows } = await pool.query(
-      `INSERT INTO tournament_matches (event_id, ${MATCH_FIELDS.join(', ')})
-       VALUES ($1, ${MATCH_FIELDS.map((_, i) => `$${i + 2}`).join(', ')})
+      `INSERT INTO tournament_matches (event_id, ${schema.fields.join(', ')})
+       VALUES ($1, ${schema.fields.map((_, i) => `$${i + 2}`).join(', ')})
        RETURNING match_id`,
-      [eventId, ...matchValues(data)]
+      [eventId, ...matchValues(schema.fields, data)]
     );
     return tournamentDetailsRepository.findMatch(eventId, rows[0].match_id);
   },
 
   updateMatch: async (eventId, matchId, data) => {
+    const schema = await loadMatchSchema();
     const { rows } = await pool.query(
       `UPDATE tournament_matches SET
-         ${MATCH_FIELDS.map((field, i) => `${field} = $${i + 3}`).join(',\n         ')},
+         ${schema.fields.map((field, i) => `${field} = $${i + 3}`).join(',\n         ')},
          updated_at = CURRENT_TIMESTAMP
        WHERE event_id = $1 AND match_id = $2
        RETURNING match_id`,
-      [eventId, matchId, ...matchValues(data)]
+      [eventId, matchId, ...matchValues(schema.fields, data)]
     );
     return rows[0] ? tournamentDetailsRepository.findMatch(eventId, matchId) : null;
   },
