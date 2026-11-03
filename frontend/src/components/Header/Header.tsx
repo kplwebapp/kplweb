@@ -57,7 +57,9 @@ export default function Header({ navigate, isDark }: Props) {
                   About
                 </Nav.Link>
                 <ActivityMenu kind="EVENT" label="Events" path="/events" navigate={go} />
-                <ActivityMenu kind="TOURNAMENT" label="Tournaments" path="/tournaments" navigate={go} />
+                <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/tournaments') }}>
+                  Tournaments
+                </Nav.Link>
                 <Nav.Link href="#" onClick={(e) => { e.preventDefault(); go('/gallery') }}>
                   Gallery
                 </Nav.Link>
