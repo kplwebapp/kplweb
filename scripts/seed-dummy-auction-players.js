@@ -1,10 +1,11 @@
 /**
- * Seeds at least 130 dummy cricket players into the current (or given) auction pool,
+ * Seeds 90 dummy cricket players into the current (or given) auction pool,
  * spread across Icon Player / All Rounder / Batsman / Bowlers / Other Players.
+ * Vibhaags: Navsari, Bilimora, Gandevi, Valsad, Pardi, Vapi, Mumbai only.
  *
  * Usage:
  *   node scripts/seed-dummy-auction-players.js
- *   node scripts/seed-dummy-auction-players.js --auction=4
+ *   node scripts/seed-dummy-auction-players.js --auction=5
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../backend/.env') });
 const pool = require('../backend/src/config/database');
@@ -17,13 +18,13 @@ const STANDARD_CATEGORIES = [
   'Other Players',
 ];
 
-/** How many dummy players per category (total 135). */
+/** How many dummy players per category (total 90). */
 const COUNTS = {
-  'Icon Player': 12,
-  'All Rounder': 36,
-  Batsman: 36,
-  Bowlers: 36,
-  'Other Players': 15,
+  'Icon Player': 10,
+  'All Rounder': 20,
+  Batsman: 20,
+  Bowlers: 20,
+  'Other Players': 20,
 };
 
 const FIRST = [
