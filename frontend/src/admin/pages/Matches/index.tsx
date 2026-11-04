@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Alert, Badge, Button, Form, Modal, Spinner, Table } from 'react-bootstrap'
 import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
+import EmptyState from '@/components/tournament/EmptyState'
 import { statsApi } from '@/services/api/publicApi'
 import {
   competitionApi,
@@ -170,54 +171,62 @@ export default function MatchesPage() {
       ) : (
         <>
           <h6 className="mb-2">Fixtures & Live</h6>
-          <Table responsive striped bordered hover className="bg-white shadow-sm mb-4">
-            <thead className="table-light">
-              <tr>
-                <th>Match</th>
-                <th>Date</th>
-                <th>Venue</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fixtures.length === 0 ? (
-                <tr><td colSpan={5} className="text-muted">No upcoming or live matches.</td></tr>
-              ) : fixtures.map((m) => (
-                <tr key={m.match_id}>
-                  <td>{m.team1_name} vs {m.team2_name}</td>
-                  <td>{formatDate(m.match_date)}</td>
-                  <td>{m.venue || '—'}</td>
-                  <td>{statusBadge(m.status)}</td>
-                  <td><Button size="sm" variant="outline-primary" onClick={() => openEdit(m)}>Edit</Button></td>
+          {fixtures.length === 0 ? (
+            <EmptyState art="fixtures" title="No upcoming or live matches" compact className="tournament-empty--admin mb-4">
+              Scheduled and live matches for this season will appear here.
+            </EmptyState>
+          ) : (
+            <Table responsive striped bordered hover className="bg-white shadow-sm mb-4">
+              <thead className="table-light">
+                <tr>
+                  <th>Match</th>
+                  <th>Date</th>
+                  <th>Venue</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {fixtures.map((m) => (
+                  <tr key={m.match_id}>
+                    <td>{m.team1_name} vs {m.team2_name}</td>
+                    <td>{formatDate(m.match_date)}</td>
+                    <td>{m.venue || '—'}</td>
+                    <td>{statusBadge(m.status)}</td>
+                    <td><Button size="sm" variant="outline-primary" onClick={() => openEdit(m)}>Edit</Button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
 
           <h6 className="mb-2">Results</h6>
-          <Table responsive striped bordered hover className="bg-white shadow-sm">
-            <thead className="table-light">
-              <tr>
-                <th>Match</th>
-                <th>Result</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.length === 0 ? (
-                <tr><td colSpan={4} className="text-muted">No completed matches yet.</td></tr>
-              ) : results.map((m) => (
-                <tr key={m.match_id}>
-                  <td>{m.team1_name} vs {m.team2_name}</td>
-                  <td>{m.result_summary || '—'}</td>
-                  <td>{formatDate(m.match_date)}</td>
-                  <td><Button size="sm" variant="outline-primary" onClick={() => openEdit(m)}>Edit</Button></td>
+          {results.length === 0 ? (
+            <EmptyState art="standings" title="No completed matches yet" compact className="tournament-empty--admin">
+              Results will show here after matches are marked completed.
+            </EmptyState>
+          ) : (
+            <Table responsive striped bordered hover className="bg-white shadow-sm">
+              <thead className="table-light">
+                <tr>
+                  <th>Match</th>
+                  <th>Result</th>
+                  <th>Date</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {results.map((m) => (
+                  <tr key={m.match_id}>
+                    <td>{m.team1_name} vs {m.team2_name}</td>
+                    <td>{m.result_summary || '—'}</td>
+                    <td>{formatDate(m.match_date)}</td>
+                    <td><Button size="sm" variant="outline-primary" onClick={() => openEdit(m)}>Edit</Button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
         </>
       )}
 

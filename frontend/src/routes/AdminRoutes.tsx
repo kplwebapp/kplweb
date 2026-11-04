@@ -8,7 +8,9 @@ import DashboardLayout from '@/admin/layouts/DashboardLayout'
 import ProtectedRoute from '@/admin/components/ProtectedRoute'
 import LoginPage from '@/admin/pages/Login'
 import SessionExpiredPage from '@/admin/pages/SessionExpired'
+import AdminNotFoundPage from '@/admin/pages/NotFound'
 import DashboardPage from '@/admin/pages/Dashboard'
+import ErrorBoundary from '@/components/errors/ErrorBoundary'
 import GalleryPage from '@/admin/pages/Gallery'
 import SponsorsPage from '@/admin/pages/Sponsors'
 import ActivitiesPage from '@/admin/pages/Activities'
@@ -38,48 +40,50 @@ function FirstCategoryRedirect({ kind, players = false }: { kind: ActivityKind; 
 
 export default function AdminRoutes() {
   return (
-    <Routes>
-      <Route path="login" element={<LoginPage />} />
-      <Route path="session-expired" element={<SessionExpiredPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route element={<DashboardLayout />}>
-          <Route index element={<DashboardPage />} />
+    <ErrorBoundary homeTo={ADMIN_BASE} homeLabel="Back to dashboard">
+      <Routes>
+        <Route path="login" element={<LoginPage />} />
+        <Route path="session-expired" element={<SessionExpiredPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<DashboardPage />} />
 
-          <Route path="tournaments" element={<FirstCategoryRedirect kind="TOURNAMENT" />} />
-          <Route path="tournaments/:category" element={<ActivitiesPage kind="TOURNAMENT" />} />
-          <Route path="tournaments/:category/:id" element={<TournamentManagePage />} />
-          <Route path="teams" element={<TeamsPage />} />
-          <Route path="auctions" element={<AuctionsPage />} />
-          <Route path="auctions/live" element={<LiveDeskPage />} />
-          <Route path="auctions/:id" element={<AuctionManagePage />} />
-          <Route path="events" element={<FirstCategoryRedirect kind="EVENT" />} />
-          <Route path="events/:category" element={<ActivitiesPage kind="EVENT" />} />
-          <Route path="categories/tournaments" element={<CategoriesPage kind="TOURNAMENT" />} />
-          <Route path="categories/events" element={<CategoriesPage kind="EVENT" />} />
-          <Route path="players" element={<FirstCategoryRedirect kind="TOURNAMENT" players />} />
-          <Route path="players/:category" element={<TournamentsForPlayersPage />} />
-          <Route path="players/:category/:tournamentId" element={<TournamentRegistrationsPage />} />
+            <Route path="tournaments" element={<FirstCategoryRedirect kind="TOURNAMENT" />} />
+            <Route path="tournaments/:category" element={<ActivitiesPage kind="TOURNAMENT" />} />
+            <Route path="tournaments/:category/:id" element={<TournamentManagePage />} />
+            <Route path="teams" element={<TeamsPage />} />
+            <Route path="auctions" element={<AuctionsPage />} />
+            <Route path="auctions/live" element={<LiveDeskPage />} />
+            <Route path="auctions/:id" element={<AuctionManagePage />} />
+            <Route path="events" element={<FirstCategoryRedirect kind="EVENT" />} />
+            <Route path="events/:category" element={<ActivitiesPage kind="EVENT" />} />
+            <Route path="categories/tournaments" element={<CategoriesPage kind="TOURNAMENT" />} />
+            <Route path="categories/events" element={<CategoriesPage kind="EVENT" />} />
+            <Route path="players" element={<FirstCategoryRedirect kind="TOURNAMENT" players />} />
+            <Route path="players/:category" element={<TournamentsForPlayersPage />} />
+            <Route path="players/:category/:tournamentId" element={<TournamentRegistrationsPage />} />
 
-          <Route path="sponsors" element={<SponsorsPage />} />
-          <Route path="gallery" element={<GalleryPage />} />
-          <Route path="members" element={<MembersPage />} />
-          <Route path="roles" element={<RolesPage />} />
+            <Route path="sponsors" element={<SponsorsPage />} />
+            <Route path="gallery" element={<GalleryPage />} />
+            <Route path="members" element={<MembersPage />} />
+            <Route path="roles" element={<RolesPage />} />
 
-          {/* KPL league pages: no longer in the menu, still reachable by URL */}
-          <Route path="matches" element={<MatchesPage />} />
-          <Route path="scoring" element={<LiveScoringPage />} />
-          <Route path="points-table" element={<PointsTablePage />} />
-          <Route path="auction" element={<Navigate to={`${ADMIN_BASE}/auctions/live`} replace />} />
+            {/* KPL league pages: no longer in the menu, still reachable by URL */}
+            <Route path="matches" element={<MatchesPage />} />
+            <Route path="scoring" element={<LiveScoringPage />} />
+            <Route path="points-table" element={<PointsTablePage />} />
+            <Route path="auction" element={<Navigate to={`${ADMIN_BASE}/auctions/live`} replace />} />
 
-          <Route path="about" element={redirectToDashboard} />
-          <Route path="contact" element={redirectToDashboard} />
-          <Route path="statistics" element={redirectToDashboard} />
-          <Route path="users" element={redirectToDashboard} />
-          <Route path="reports" element={redirectToDashboard} />
-          <Route path="settings" element={redirectToDashboard} />
+            <Route path="about" element={redirectToDashboard} />
+            <Route path="contact" element={redirectToDashboard} />
+            <Route path="statistics" element={redirectToDashboard} />
+            <Route path="users" element={redirectToDashboard} />
+            <Route path="reports" element={redirectToDashboard} />
+            <Route path="settings" element={redirectToDashboard} />
+          </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
-    </Routes>
+        <Route path="*" element={<AdminNotFoundPage />} />
+      </Routes>
+    </ErrorBoundary>
   )
 }

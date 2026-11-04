@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap'
 import { useReloadable } from '@/admin/hooks/useReloadable'
+import EmptyState from '@/components/tournament/EmptyState'
 import { STAGE_LABELS, tournamentAdminApi, type TournamentMatch } from '@/services/api/tournamentApi'
 import MatchFormModal from './MatchFormModal'
 import { matchResultText, matchScoreLine, matchWhen } from './matchText'
@@ -58,23 +59,23 @@ export default function MatchesTab({ tournamentId, categorySlug }: Props) {
       {!canAdd && <Alert variant="info">Add at least two teams on the Teams tab before recording matches.</Alert>}
       {actionError && <Alert variant="danger" dismissible onClose={() => setActionError('')}>{actionError}</Alert>}
 
-      <Table responsive hover className="bg-white shadow-sm align-middle">
-        <thead className="table-light">
-          <tr>
-            <th>When</th>
-            <th>Stage</th>
-            <th>Match</th>
-            <th>Result</th>
-            <th className="text-end">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.matches.length === 0 ? (
+      {data.matches.length === 0 ? (
+        <EmptyState art="fixtures" title="No matches scheduled yet" compact className="tournament-empty--admin">
+          Add fixtures once at least two teams are on the Teams tab.
+        </EmptyState>
+      ) : (
+        <Table responsive hover className="bg-white shadow-sm align-middle">
+          <thead className="table-light">
             <tr>
-              <td colSpan={5} className="text-center text-muted py-4">No matches scheduled yet.</td>
+              <th>When</th>
+              <th>Stage</th>
+              <th>Match</th>
+              <th>Result</th>
+              <th className="text-end">Action</th>
             </tr>
-          ) : (
-            data.matches.map((m) => {
+          </thead>
+          <tbody>
+            {data.matches.map((m) => {
               const scoreLine = matchScoreLine(m)
               return (
                 <tr key={m.match_id}>
@@ -99,10 +100,10 @@ export default function MatchesTab({ tournamentId, categorySlug }: Props) {
                   </td>
                 </tr>
               )
-            })
-          )}
-        </tbody>
-      </Table>
+            })}
+          </tbody>
+        </Table>
+      )}
 
       {modal && (
         <MatchFormModal

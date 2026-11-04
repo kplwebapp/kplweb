@@ -96,9 +96,9 @@ export default function AuctionPage() {
           <Card.Body className="text-center text-danger py-5">{list.error}</Card.Body>
         </Card>
       ) : list.auctions.length === 0 ? (
-        <Card className="shadow-sm border-0">
-          <Card.Body className="text-center text-muted py-5">{emptyMessage}</Card.Body>
-        </Card>
+        <EmptyState art="auction" title="No auctions yet" compact>
+          {emptyMessage}
+        </EmptyState>
       ) : (
         <Row xs={1} md={2} lg={3} className="g-4">
           {list.auctions.map((auction) => (
@@ -423,7 +423,11 @@ function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
                   <tbody>
                     {listedPlayers.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="text-center text-muted py-4">No players left in the list.</td>
+                        <td colSpan={4} className="p-3">
+                          <EmptyState art="auction" title="No players left in the list" compact>
+                            The pool is empty for now — check back when more players are added.
+                          </EmptyState>
+                        </td>
                       </tr>
                     ) : (
                       listedPlayers.map((lot) => (
@@ -479,10 +483,10 @@ function Board({ snapshot, fullscreen, onToggleFullscreen }: BoardProps) {
             </Col>
           ))}
           {teams.length === 0 && (
-            <Col>
-              <Card className="border-0 shadow-sm">
-                <Card.Body className="text-muted text-center py-4">No teams in this auction yet.</Card.Body>
-              </Card>
+            <Col xs={12}>
+              <EmptyState art="teams" title="No teams in this auction yet" compact>
+                Participating teams will appear here once they are added to the auction.
+              </EmptyState>
             </Col>
           )}
         </Row>
@@ -568,7 +572,11 @@ function TeamCard({ team }: { team: PublicTeam }) {
         </Modal.Header>
         <Modal.Body className="p-0">
           {team.players.length === 0 ? (
-            <p className="text-muted text-center py-4 mb-0">No players selected yet.</p>
+            <div className="p-3">
+              <EmptyState art="teams" title="No players selected yet" compact>
+                Bought players for this team will show up here.
+              </EmptyState>
+            </div>
           ) : (
             <Table responsive hover className="mb-0 align-middle">
               <thead className="table-light">

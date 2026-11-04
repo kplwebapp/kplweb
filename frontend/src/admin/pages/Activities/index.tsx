@@ -5,6 +5,7 @@ import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
 import ActivityFormModal from '@/admin/components/ActivityFormModal'
 import { KIND_LABELS, tournamentManagePath } from '@/admin/config/sidebar'
 import { useAdminContext } from '@/admin/context'
+import EmptyState from '@/components/tournament/EmptyState'
 import {
   adminActivitiesApi,
   type Activity,
@@ -144,6 +145,21 @@ function CategoryActivities({ kind, slug }: { kind: ActivityKind; slug: string }
 
       {loading ? (
         <div className="text-center py-5"><Spinner animation="border" /></div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          art={kind === 'TOURNAMENT' ? 'standings' : 'events'}
+          title={
+            archivedView
+              ? `No archived ${labels.plural.toLowerCase()}`
+              : `No ${view.toLowerCase()} ${labels.plural.toLowerCase()}`
+          }
+          compact
+          className="tournament-empty--admin"
+        >
+          {archivedView
+            ? `Archived ${labels.plural.toLowerCase()} will show up here.`
+            : `Add a ${labels.singular.toLowerCase()} to get started.`}
+        </EmptyState>
       ) : (
         <Table responsive hover className="bg-white shadow-sm align-middle">
           <thead className="table-light">
@@ -156,16 +172,7 @@ function CategoryActivities({ kind, slug }: { kind: ActivityKind; slug: string }
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-4">
-                  {archivedView
-                    ? `No archived ${labels.plural.toLowerCase()}.`
-                    : `No ${view.toLowerCase()} ${labels.plural.toLowerCase()}.`}
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
+            {items.map((item) => (
                 <tr key={item.event_id}>
                   <td className="text-nowrap">{formatEventDateRange(item.event_date, item.end_date) || 'Date TBA'}</td>
                   <td className="fw-semibold">
@@ -207,8 +214,7 @@ function CategoryActivities({ kind, slug }: { kind: ActivityKind; slug: string }
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
+              ))}
           </tbody>
         </Table>
       )}

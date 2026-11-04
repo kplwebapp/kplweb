@@ -1,7 +1,16 @@
 import type { ReactNode } from 'react'
 import './tournament.scss'
 
-export type EmptyArt = 'countdown' | 'teams' | 'standings' | 'photos' | 'videos' | 'auction'
+export type EmptyArt =
+  | 'countdown'
+  | 'teams'
+  | 'standings'
+  | 'photos'
+  | 'videos'
+  | 'auction'
+  | 'scores'
+  | 'fixtures'
+  | 'events'
 
 const PRIMARY = 'var(--primary, #000066)'
 const ACCENT = 'var(--accent-gold, #FFD700)'
@@ -11,6 +20,7 @@ const SOFT = '#E6ECFF'
 function Art({ type }: { type: EmptyArt }) {
   switch (type) {
     case 'countdown':
+    case 'events':
       return (
         <svg viewBox="0 0 160 120" aria-hidden="true">
           <rect x="18" y="22" width="96" height="84" rx="10" fill={SOFT} />
@@ -105,6 +115,44 @@ function Art({ type }: { type: EmptyArt }) {
           <path d="M58 34 v12" stroke={PRIMARY} strokeWidth="2.5" strokeLinecap="round" opacity="0.35" />
         </svg>
       )
+    case 'scores':
+      return (
+        <svg viewBox="0 0 160 120" aria-hidden="true">
+          <rect x="18" y="24" width="124" height="72" rx="12" fill={PRIMARY} />
+          <rect x="26" y="32" width="108" height="56" rx="8" fill={SOFT} />
+          <text x="52" y="58" textAnchor="middle" fontSize="14" fontWeight="700" fill={PRIMARY}>
+            —
+          </text>
+          <text x="80" y="58" textAnchor="middle" fontSize="11" fontWeight="700" fill={PRIMARY} opacity="0.45">
+            vs
+          </text>
+          <text x="108" y="58" textAnchor="middle" fontSize="14" fontWeight="700" fill={PRIMARY}>
+            —
+          </text>
+          <rect x="44" y="68" width="72" height="10" rx="5" fill="#fff" />
+          <circle cx="128" cy="28" r="14" fill="#ef4444" />
+          <text x="128" y="32" textAnchor="middle" fontSize="8" fontWeight="800" fill="#fff">
+            LIVE
+          </text>
+          <rect x="50" y="104" width="60" height="6" rx="3" fill={ACCENT} />
+        </svg>
+      )
+    case 'fixtures':
+      return (
+        <svg viewBox="0 0 160 120" aria-hidden="true">
+          <rect x="28" y="18" width="104" height="84" rx="10" fill={SOFT} />
+          <rect x="28" y="18" width="104" height="22" rx="10" fill={PRIMARY} />
+          <rect x="28" y="30" width="104" height="10" fill={PRIMARY} />
+          {[0, 1, 2].map((i) => (
+            <g key={i}>
+              <rect x="40" y={48 + i * 18} width="48" height="10" rx="2" fill="#fff" />
+              <rect x="94" y={48 + i * 18} width="26" height="10" rx="5" fill={i === 0 ? ACCENT : '#fff'} />
+            </g>
+          ))}
+          <circle cx="132" cy="92" r="18" fill="#fff" stroke={PRIMARY} strokeWidth="3" />
+          <path d="M126 92 h12 M132 86 v12" stroke={PRIMARY} strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      )
   }
 }
 
@@ -113,11 +161,12 @@ type Props = {
   title: string
   children?: ReactNode
   compact?: boolean
+  className?: string
 }
 
-export default function EmptyState({ art, title, children, compact = false }: Props) {
+export default function EmptyState({ art, title, children, compact = false, className = '' }: Props) {
   return (
-    <div className={`tournament-empty${compact ? ' tournament-empty--compact' : ''}`}>
+    <div className={`tournament-empty${compact ? ' tournament-empty--compact' : ''}${className ? ` ${className}` : ''}`}>
       <div className="tournament-empty__art">
         <Art type={art} />
       </div>

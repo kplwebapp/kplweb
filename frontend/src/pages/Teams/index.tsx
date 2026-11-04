@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, Spinner, Alert, Row, Col } from 'react-bootstrap'
 import PageShell from '@/components/common/PageShell'
+import EmptyState from '@/components/tournament/EmptyState'
 import TeamBadge from '@/components/tournament/TeamBadge'
 import { teamsApi, type PublicTeam } from '@/services/api/publicApi'
 
@@ -38,7 +39,9 @@ export default function Teams() {
           Loading teams…
         </div>
       ) : teams.length === 0 ? (
-        <div className="text-muted text-center py-5">No teams available yet.</div>
+        <EmptyState art="teams" title="No teams available yet" compact>
+          Teams will appear here once they are added for the season.
+        </EmptyState>
       ) : (
         <Row xs={1} sm={2} lg={3} className="g-3">
           {teams.map((team) => (

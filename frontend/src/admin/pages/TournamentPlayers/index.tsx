@@ -4,6 +4,7 @@ import { Alert, Badge, Spinner, Table } from 'react-bootstrap'
 import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
 import { ADMIN_BASE, playersPath } from '@/admin/config/sidebar'
 import { useAdminContext } from '@/admin/context'
+import EmptyState from '@/components/tournament/EmptyState'
 import { adminActivitiesApi, type Activity, type RegisteredPlayer } from '@/services/api/activitiesApi'
 import { formatEventDateRange } from '@/utils/eventDate'
 import { CRICKET_CATEGORY_SLUG, CRICKET_SKILL_LABELS } from '@/constants/cricketSkills'
@@ -53,6 +54,15 @@ export function TournamentsForPlayersPage() {
         <div className="text-center py-5"><Spinner animation="border" /></div>
       ) : current.error ? (
         <Alert variant="danger">{current.error}</Alert>
+      ) : current.items.length === 0 ? (
+        <EmptyState
+          art="standings"
+          title={`No ${category.name.toLowerCase()} tournaments yet`}
+          compact
+          className="tournament-empty--admin"
+        >
+          Add one under Tournaments → {category.name}.
+        </EmptyState>
       ) : (
         <Table responsive hover className="bg-white shadow-sm align-middle">
           <thead className="table-light">
@@ -64,29 +74,21 @@ export function TournamentsForPlayersPage() {
             </tr>
           </thead>
           <tbody>
-            {current.items.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="text-center text-muted py-4">
-                  No {category.name.toLowerCase()} tournaments yet. Add one under Tournaments → {category.name}.
+            {current.items.map((item) => (
+              <tr key={item.event_id}>
+                <td className="fw-semibold">
+                  {item.title}{' '}
+                  <Badge bg={STATUS_BADGE[item.status]} className="ms-1 fw-normal">{item.status.toLowerCase()}</Badge>
+                </td>
+                <td className="text-nowrap">{formatEventDateRange(item.event_date, item.end_date) || 'Date TBA'}</td>
+                <td>{item.venue || '—'}</td>
+                <td className="text-end">
+                  <Link to={`${playersPath(category.slug)}/${item.event_id}`} className="btn btn-sm btn-primary">
+                    View Players
+                  </Link>
                 </td>
               </tr>
-            ) : (
-              current.items.map((item) => (
-                <tr key={item.event_id}>
-                  <td className="fw-semibold">
-                    {item.title}{' '}
-                    <Badge bg={STATUS_BADGE[item.status]} className="ms-1 fw-normal">{item.status.toLowerCase()}</Badge>
-                  </td>
-                  <td className="text-nowrap">{formatEventDateRange(item.event_date, item.end_date) || 'Date TBA'}</td>
-                  <td>{item.venue || '—'}</td>
-                  <td className="text-end">
-                    <Link to={`${playersPath(category.slug)}/${item.event_id}`} className="btn btn-sm btn-primary">
-                      View Players
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </Table>
       )}
@@ -165,8 +167,10 @@ export function TournamentRegistrationsPage() {
         <tbody>
           {players.length === 0 ? (
             <tr>
-              <td colSpan={columnCount} className="text-center text-muted py-4">
-                No players have registered for this tournament yet.
+              <td colSpan={columnCount} className="p-3">
+                <EmptyState art="teams" title="No players registered yet" compact className="tournament-empty--admin">
+                  Registrations for this tournament will appear here.
+                </EmptyState>
               </td>
             </tr>
           ) : (

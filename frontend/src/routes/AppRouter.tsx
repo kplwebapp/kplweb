@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -13,6 +13,9 @@ const Gallery = lazy(() => import('@/pages/Gallery'));
 const Contact = lazy(() => import('@/pages/Contact'));
 const Login = lazy(() => import('@/auth/Login'));
 const SessionExpired = lazy(() => import('@/pages/SessionExpired'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+const Offline = lazy(() => import('@/pages/Offline'));
+const ServerError = lazy(() => import('@/pages/ServerError'));
 const Register = lazy(() => import('@/auth/Register'));
 const ThankYou = lazy(() => import('@/auth/ThankYou'));
 const Logout = lazy(() => import('@/auth/Logout'));
@@ -59,6 +62,8 @@ export default function AppRouter() {
         <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/session-expired" element={<SessionExpired />} />
+          <Route path="/offline" element={<Offline />} />
+          <Route path="/error" element={<ServerError />} />
           <Route path="/register" element={<RegisterRoute />} />
           <Route path="/thank-you" element={<ThankYouRoute />} />
           <Route path="/logout" element={<LogoutRoute />} />
@@ -98,7 +103,7 @@ export default function AppRouter() {
             }
           />
           <Route path="/admin/*" element={<AdminRoutes />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

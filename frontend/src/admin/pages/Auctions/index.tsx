@@ -18,6 +18,7 @@ import {
 } from '@/admin/pages/AuctionManage/auctionSettings'
 import { auctionAdminApi, type LiveAuctionSummary, type TournamentOption } from '@/services/api/auctionApi'
 import { auctionStatusLabel, auctionStatusVariant, formatAuctionDate } from '@/utils/auctionText'
+import EmptyState from '@/components/tournament/EmptyState'
 
 /** /admin/auctions — every auction, with a single live desk when one is running. */
 export default function AuctionsPage() {
@@ -45,7 +46,11 @@ export default function AuctionsPage() {
             <Card.Header className="bg-white fw-semibold">All auctions</Card.Header>
             <Card.Body className="p-0">
               {data.auctions.length === 0 ? (
-                <p className="text-muted p-4 mb-0">No auctions yet.</p>
+                <div className="p-3">
+                  <EmptyState art="auction" title="No auctions yet" compact className="tournament-empty--admin">
+                    Create an auction for a cricket tournament to get started.
+                  </EmptyState>
+                </div>
               ) : (
                 <Table responsive hover className="mb-0 align-middle">
                   <thead className="table-light">
@@ -107,13 +112,12 @@ export default function AuctionsPage() {
 function LiveDeskCard({ live, canOperate }: { live: LiveAuctionSummary | null; canOperate: boolean }) {
   if (!live) {
     return (
-      <Alert variant="light" className="border mb-4">
-        <div className="fw-semibold mb-1">No live auction</div>
-        <div className="small text-muted mb-0">
+      <div className="mb-4">
+        <EmptyState art="auction" title="No live auction" compact className="tournament-empty--admin">
           Mark an auction ready, then start it. Only one auction can run live at a time.
           {canOperate ? ' Operators can open the live desk from the sidebar once started.' : null}
-        </div>
-      </Alert>
+        </EmptyState>
+      </div>
     )
   }
 

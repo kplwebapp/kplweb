@@ -1,0 +1,70 @@
+.kpl-error-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.kpl-error-page--page {
+  min-height: 100vh;
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 45%, #334155 100%);
+}
+
+.kpl-error-page--page.kpl-error-page--offline {
+  background: linear-gradient(145deg, #0b3d2e 0%, #146c43 55%, #198754 100%);
+}
+
+.kpl-error-page--panel {
+  min-height: 16rem;
+  padding: 1rem 0;
+}
+
+.kpl-error-page__card {
+  width: min(440px, 100%);
+  text-align: center;
+  padding: 2rem 1.75rem 1.75rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+}
+
+.kpl-error-page--panel .kpl-error-page__card {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  width: min(480px, 100%);
+}
+
+.kpl-error-page__art {
+  line-height: 0;
+  margin-bottom: 0.35rem;
+}
+
+.kpl-error-page__code {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.kpl-error-page__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.5rem;
+}
+
+.kpl-error-page__lead {
+  margin: 0 0 1.35rem;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.kpl-error-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+}

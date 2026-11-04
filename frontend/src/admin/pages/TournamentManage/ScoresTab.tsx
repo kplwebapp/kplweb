@@ -8,6 +8,7 @@ import {
   type MatchStatus,
   type TournamentMatch,
 } from '@/services/api/tournamentApi'
+import EmptyState from '@/components/tournament/EmptyState'
 import CricketScoreboard from './CricketMatchScoreboard'
 import { matchResultText, matchScoreLine, matchWhen } from './matchText'
 import './scoresTab.css'
@@ -195,24 +196,22 @@ export default function ScoresTab({ tournamentId, categorySlug }: Props) {
         Match schedule — open a fixture to enter live scores and the full scorecard. Only scorers can use this tab.
       </p>
       {error && <Alert variant="danger">{error}</Alert>}
-      <Table responsive hover className="bg-white shadow-sm align-middle kpl-scores-schedule">
-        <thead className="table-light">
-          <tr>
-            <th>When</th>
-            <th>Stage</th>
-            <th>Match</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {matches.length === 0 ? (
+      {matches.length === 0 ? (
+        <EmptyState art="scores" title="No matches to score yet" compact className="tournament-empty--admin">
+          Add fixtures on the Matches tab first, then open a match here to enter live and full scoreboard details.
+        </EmptyState>
+      ) : (
+        <Table responsive hover className="bg-white shadow-sm align-middle kpl-scores-schedule">
+          <thead className="table-light">
             <tr>
-              <td colSpan={4} className="text-center text-muted py-4">
-                No matches scheduled yet. Add fixtures on the Matches tab first.
-              </td>
+              <th>When</th>
+              <th>Stage</th>
+              <th>Match</th>
+              <th>Status</th>
             </tr>
-          ) : (
-            matches.map((m) => {
+          </thead>
+          <tbody>
+            {matches.map((m) => {
               const scoreLine = matchScoreLine(m)
               return (
                 <tr key={m.match_id} onClick={() => setSelectedId(m.match_id)}>
@@ -232,10 +231,10 @@ export default function ScoresTab({ tournamentId, categorySlug }: Props) {
                   </td>
                 </tr>
               )
-            })
-          )}
-        </tbody>
-      </Table>
+            })}
+          </tbody>
+        </Table>
+      )}
     </>
   )
 }

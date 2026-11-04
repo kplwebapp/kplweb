@@ -49,6 +49,7 @@ function RootNavigator() {
         <Stack.Screen name="account" options={{ title: 'Account' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
+        <Stack.Screen name="+error" options={{ title: 'Error', headerShown: false }} />
       </Stack>
     </>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Container, Card, Table, Form, Spinner } from 'react-bootstrap'
+import EmptyState from '@/components/tournament/EmptyState'
 import TeamBadge from '@/components/tournament/TeamBadge'
 import { statsApi, type PointsTableRow, type Season } from '@/services/api/publicApi'
 import { pickDefaultSeason } from '@/utils/season'
@@ -60,11 +61,9 @@ export default function PointsTable() {
               <Spinner animation="border" />
             </div>
           ) : seasons.length === 0 ? (
-            <Card className="shadow-sm border-0">
-              <Card.Body className="text-center text-muted py-4">
-                No seasons available yet.
-              </Card.Body>
-            </Card>
+            <EmptyState art="standings" title="No seasons available yet" compact>
+              Points tables will appear here once a season is set up.
+            </EmptyState>
           ) : (
             <>
               <div className="points-table__season-select mb-3">
@@ -87,9 +86,9 @@ export default function PointsTable() {
                       <Spinner animation="border" size="sm" />
                     </div>
                   ) : standings.length === 0 ? (
-                    <div className="text-center text-muted py-4">
-                      No standings for this season yet.
-                    </div>
+                    <EmptyState art="standings" title="No standings for this season yet" compact>
+                      Team standings will show here after matches are played.
+                    </EmptyState>
                   ) : (
                     <Table responsive striped bordered hover className="mb-0">
                       <thead className="table-light">

@@ -15,6 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 import PageHeader, { AdminSection } from '@/admin/components/common/PageHeader'
+import EmptyState from '@/components/tournament/EmptyState'
 import { dashboardApi, type DashboardStats } from '@/services/api/dashboardApi'
 import { VIBHAAG_OPTIONS } from '@/constants/profileOptions'
 
@@ -155,7 +156,7 @@ function Charts({ stats }: { stats: DashboardStats }) {
         <Col lg={7}>
           <ChartCard title="Player registrations by tournament" subtitle="Latest tournaments (archived ones excluded)">
             {tournaments.length === 0 ? (
-              <Empty text="No tournaments yet." />
+              <Empty text="No tournaments yet." art="standings" />
             ) : (
               <ResponsiveContainer width="100%" height={Math.max(220, tournaments.length * 40)}>
                 <BarChart data={tournaments} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
@@ -175,7 +176,7 @@ function Charts({ stats }: { stats: DashboardStats }) {
         <Col lg={5}>
           <ChartCard title="Tournament players by vibhaag" subtitle="All active tournaments combined">
             {total(stats.playersByVibhaag) === 0 ? (
-              <Empty text="No tournament registrations yet." />
+              <Empty text="No tournament registrations yet." art="teams" />
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={stats.playersByVibhaag} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
@@ -270,7 +271,7 @@ function TournamentVibhaagCard({ tournaments }: { tournaments: TournamentVibhaag
       {selected ? (
         <VibhaagDonut key={selected.event_id} data={selected.byVibhaag} caption="Players" />
       ) : (
-        <Empty text="No tournaments yet." />
+        <Empty text="No tournaments yet." art="standings" />
       )}
     </ChartCard>
   )
@@ -325,6 +326,16 @@ function VibhaagDonut({ data, caption }: { data: DashboardStats['membersByVibhaa
   )
 }
 
-function Empty({ text = 'No data yet.' }: { text?: string }) {
-  return <div className="text-muted text-center py-5">{text}</div>
+function Empty({
+  text = 'No data yet.',
+  art = 'standings',
+}: {
+  text?: string
+  art?: 'standings' | 'events' | 'scores' | 'auction' | 'teams'
+}) {
+  return (
+    <EmptyState art={art} title={text.replace(/\.$/, '')} compact className="tournament-empty--admin">
+      Check back once there is something to chart.
+    </EmptyState>
+  )
 }

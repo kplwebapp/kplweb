@@ -104,9 +104,9 @@ export default function ActivityList({ kind, label, path, tabbed = false }: Prop
         ) : result.error ? (
           <Alert variant="danger" className="mb-0">{result.error}</Alert>
         ) : result.items.length === 0 ? (
-          <p className="text-muted mb-0">
-            There are no upcoming {label.toLowerCase()} at the moment. Please check back soon.
-          </p>
+          <EmptyState art="events" title={`No upcoming ${label.toLowerCase()} yet`} compact>
+            New {label.toLowerCase()} will be announced here. Please check back soon.
+          </EmptyState>
         ) : (
           <Row className="g-4">
             {result.items.map((item) => (
