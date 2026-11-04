@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Container, Card, Table, Form, Spinner } from 'react-bootstrap'
+import { Container, Table, Form, Spinner } from 'react-bootstrap'
 import EmptyState from '@/components/tournament/EmptyState'
 import TeamBadge from '@/components/tournament/TeamBadge'
 import { statsApi, type PointsTableRow, type Season } from '@/services/api/publicApi'

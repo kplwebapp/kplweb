@@ -21,7 +21,7 @@ export default function MainLayout({ navigate, children }: Props) {
       const s = localStorage.getItem('kpl-theme')
       if (s === 'dark') setIsDark(true)
       else if (s === 'light') setIsDark(false)
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     setInitialized(true)
@@ -31,7 +31,7 @@ export default function MainLayout({ navigate, children }: Props) {
     if (!initialized) return
     try {
       localStorage.setItem('kpl-theme', isDark ? 'dark' : 'light')
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   }, [isDark, initialized])
